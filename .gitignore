@@ -1,0 +1,22 @@
+# GitHub 仓库只保存源码与文档。高清成品放在 GitHub Releases。
+releases/
+qa/
+
+# 用户提供、公开参考及生成中间素材不进入源码仓库。
+source/user-materials/
+source/work/
+
+# 构建生成物与大体积帧包。
+source/standalone/xiaoxiwei/frames-4k.zip
+source/standalone/xiaoxiwei/bin/
+source/standalone/xiaoxiwei/obj/
+source/standalone/xiaoxiwei/__pycache__/
+source/standalone/xiaoxiwei/*.exe
+source/standalone/xiaoxiwei/*.dll
+source/standalone/xiaoxiwei/*.pdb
+
+*.pyc
+*.tmp
+*.log
+Thumbs.db
+Desktop.ini
