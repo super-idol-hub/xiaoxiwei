@@ -38,6 +38,14 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional apiVersion=1 opt-in label for the reserved r15 skin-exclusive action.",
     )
+    parser.add_argument(
+        "--include-linan-swing-exit",
+        action="store_true",
+        help=(
+            "Package the optional r15/c05 -> r15/c02 loop-wrap mesh and "
+            "r15/c02 -> r15/c06 click-exit mesh for the persistent swing."
+        ),
+    )
     parser.add_argument("--report", type=Path)
     return parser.parse_args()
 
@@ -58,7 +66,9 @@ def expected_paths() -> list[str]:
     ]
 
 
-def expected_motion_paths() -> list[str]:
+def expected_motion_paths(
+    include_linan_swing_exit: bool = False,
+) -> list[str]:
     pairs: set[tuple[tuple[int, int], tuple[int, int]]] = set()
     for row, count in enumerate(ROW_COUNTS):
         if row in (9, 10):
@@ -67,6 +77,9 @@ def expected_motion_paths() -> list[str]:
             pairs.add(((row, column), (row, (column + 1) % count)))
             if row != 0:
                 pairs.add(((row, column), (0, 0)))
+    if include_linan_swing_exit:
+        pairs.add(((15, 5), (15, 2)))
+        pairs.add(((15, 2), (15, 6)))
     return [
         f"motion/r{source[0]:02d}/c{source[1]:02d}-r{target[0]:02d}-c{target[1]:02d}.mtn"
         for source, target in sorted(pairs)
@@ -145,7 +158,11 @@ def main() -> int:
         )
 
     motion_entries: list[dict[str, object]] = []
-    motion_paths = expected_motion_paths() if motion_root is not None else []
+    motion_paths = (
+        expected_motion_paths(args.include_linan_swing_exit)
+        if motion_root is not None
+        else []
+    )
     for entry in motion_paths:
         relative = entry.removeprefix("motion/")
         path = motion_root / Path(relative)
@@ -221,6 +238,8 @@ def main() -> int:
         "name": name,
         "developer": developer,
         "exclusiveAction": exclusive_action or None,
+        "linanSwingLoopWrapMesh": args.include_linan_swing_exit,
+        "linanSwingExitMesh": args.include_linan_swing_exit,
         "frameCount": len(expected),
         "motionPairCount": len(motion_paths),
         "ghostFreeMotionMeshes": bool(motion_paths),

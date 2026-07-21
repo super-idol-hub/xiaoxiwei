@@ -49,10 +49,13 @@ MOVEMENT_SPECS = (
     (14, 15, "jog", "jog-right", 8, 100),
     (16, 17, "sprint", "sprint-right", 8, 72),
 )
-BUILTIN_EXTENSION_SPECS = (
+BUILTIN_V304_EXTENSION_SPECS = (
     (12, "adorable", "idle-adorable", 8, 220),
     (13, "laughing", "idle-laughing", 8, 190),
     (14, "crying", "idle-crying", 8, 230),
+)
+BUILTIN_V305_EXTENSION_SPECS = BUILTIN_V304_EXTENSION_SPECS + (
+    (15, "skin-exclusive", "idle-builtin-exclusive", 8, 220),
 )
 EXTERNAL_EXTENSION_SPECS = (
     (15, "skin-exclusive", "skin-exclusive", 8, 220),
@@ -1043,6 +1046,10 @@ def idle_alignment_report(
     action_frames: list[Image.Image],
     geometry: dict[str, object],
     action: str,
+    *,
+    maximum_center_deviation_ratio: float = 0.12,
+    maximum_center_span_ratio: float = 0.15,
+    maximum_baseline_span_ratio: float | None = None,
 ) -> dict[str, object]:
     bounds = [alpha_bbox(frame) for frame in action_frames]
     if any(value is None for value in bounds):
@@ -1060,9 +1067,13 @@ def idle_alignment_report(
     center_deviation = max(abs(center - expected_center) for center in centers)
     center_span = max(centers) - min(centers)
     baseline_span = max(bottoms) - min(bottoms)
-    maximum_center_deviation = FRAME_SIZE[0] * 0.12
-    maximum_center_span = FRAME_SIZE[0] * 0.15
-    baseline_ratio = 0.16 if action in {"sitting", "side-rest"} else 0.10
+    maximum_center_deviation = FRAME_SIZE[0] * maximum_center_deviation_ratio
+    maximum_center_span = FRAME_SIZE[0] * maximum_center_span_ratio
+    baseline_ratio = (
+        maximum_baseline_span_ratio
+        if maximum_baseline_span_ratio is not None
+        else (0.16 if action in {"sitting", "side-rest"} else 0.10)
+    )
     maximum_baseline_span = FRAME_SIZE[1] * baseline_ratio
 
     viewport_left = int(geometry["position4x"][0])
@@ -1281,12 +1292,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--action-profile",
-        choices=("legacy", "built-in-v304", "external-v304"),
+        choices=(
+            "legacy", "built-in-v304", "built-in-v305", "built-in-v306",
+            "external-v304", "external-v306", "external-v306-linan",
+        ),
         default="legacy",
         help=(
-            "Optionally replace retired movement rows with v3.0.4 action art. "
-            "The built-in profile consumes idle-adorable/laughing/crying.png; "
-            "the external profile consumes skin-exclusive.png."
+            "Optionally replace retired movement rows with versioned action art. "
+            "The v3.0.4 built-in profile consumes idle-adorable/laughing/crying.png; "
+            "the v3.0.5/v3.0.6 built-in profiles additionally consume "
+            "idle-builtin-exclusive.png; the external profiles consume skin-exclusive.png."
         ),
     )
     parser.add_argument("--skill-dir", required=True)
@@ -1445,7 +1460,7 @@ def main() -> None:
                 "method": "compatibility-copy-from-walk-left",
             }
 
-    # v3.0.4 reuses rows whose runtime movement entry points were retired in
+    # v3.0.4 introduced reuse of rows whose runtime movement entry points were retired in
     # v3.0.3.  The authored action strips remain coherent eight-pose visual
     # jobs; this deterministic stage only extracts and registers them.  A
     # profile is explicit so old builds and third-party apiVersion=1 skins do
@@ -1453,10 +1468,18 @@ def main() -> None:
     if args.action_profile == "built-in-v304":
         if args.external_skin:
             raise SystemExit("built-in-v304 action profile cannot be used for an external skin")
-        extension_specs = BUILTIN_EXTENSION_SPECS
-    elif args.action_profile == "external-v304":
+        extension_specs = BUILTIN_V304_EXTENSION_SPECS
+    elif args.action_profile in ("built-in-v305", "built-in-v306"):
+        if args.external_skin:
+            raise SystemExit("built-in v3.0.5/v3.0.6 action profile cannot be used for an external skin")
+        extension_specs = BUILTIN_V305_EXTENSION_SPECS
+    elif args.action_profile in (
+        "external-v304",
+        "external-v306",
+        "external-v306-linan",
+    ):
         if not args.external_skin:
-            raise SystemExit("external-v304 action profile requires --external-skin")
+            raise SystemExit("external action profile requires --external-skin")
         extension_specs = EXTERNAL_EXTENSION_SPECS
     else:
         extension_specs = ()
@@ -1588,7 +1611,7 @@ def main() -> None:
             movement_alignment[name] = {
                 "ok": True,
                 "skipped": True,
-                "reason": "one or both retired gait rows are repurposed by the selected v3.0.4 action profile",
+                "reason": "one or both retired gait rows are repurposed by the selected versioned action profile",
             }
         else:
             movement_alignment[name] = movement_alignment_report(
@@ -1609,11 +1632,31 @@ def main() -> None:
 
     extension_alignment: dict[str, dict[str, object]] = {}
     for row, name, _source_state, frame_count, _duration in extension_specs:
+        is_linan_depth_swing = (
+            args.action_profile == "external-v306-linan"
+            and name == "skin-exclusive"
+        )
         extension_alignment[name] = idle_alignment_report(
             [frames[(row, column)] for column in range(frame_count)],
             extension_rows[name]["geometry"],
             name,
+            # A front-view swing deliberately rises and changes apparent depth
+            # at its two apices.  Keep its horizontal center much stricter than
+            # an ordinary action while allowing the bounded vertical arc.  The
+            # 21% ceiling accepts the balanced front/back strip (20.4%) but
+            # still rejects the earlier exaggerated version (22.9%).
+            maximum_center_deviation_ratio=0.05 if is_linan_depth_swing else 0.12,
+            maximum_center_span_ratio=0.05 if is_linan_depth_swing else 0.15,
+            maximum_baseline_span_ratio=0.21 if is_linan_depth_swing else None,
         )
+        if is_linan_depth_swing:
+            extension_alignment[name].update(
+                {
+                    "motionAxis": "screen-depth-forward-back",
+                    "horizontalTranslationForbidden": True,
+                    "cameraFacingGazeRequired": True,
+                }
+            )
 
     look_alignment = look_alignment_report(
         frames[(0, 0)],

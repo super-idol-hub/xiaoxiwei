@@ -34,8 +34,6 @@ BACKGROUND = (31, 33, 37, 255)
 MINIMUM_STAGES = 24
 TIMING_REFERENCE_STAGES = 56
 MINIMUM_TICK_MS = 16
-WALK_TICK_MS = 24
-JOG_TICK_MS = 19
 ALIGNMENT_STRENGTH = 0.38
 ALPHA_BOUNDS_THRESHOLD = 4
 
@@ -59,10 +57,10 @@ FRAME_DURATIONS_MS: Tuple[Tuple[int, ...], ...] = (
     (120,),
     (120,),
     (420, 320, 240, 170, 190, 1100),
-    (150, 150, 150, 150, 150, 150, 150, 150),
-    (150, 150, 150, 150, 150, 150, 150, 150),
-    (100, 100, 100, 100, 100, 100, 100, 100),
-    (100, 100, 100, 100, 100, 100, 100, 100),
+    (220, 140, 180, 240, 260, 180, 160, 260),
+    (190, 150, 170, 170, 250, 170, 170, 220),
+    (220, 180, 220, 260, 300, 240, 200, 260),
+    (220, 180, 180, 220, 260, 200, 180, 260),
     (70, 70, 70, 70, 70, 70, 70, 70),
     (70, 70, 70, 70, 70, 70, 70, 70),
     (150, 150, 150, 150, 150, 150, 150, 150),
@@ -87,7 +85,7 @@ class RegularAnimation:
     row: int
 
 
-REGULAR_ANIMATIONS: Tuple[RegularAnimation, ...] = (
+BASE_REGULAR_ANIMATIONS: Tuple[RegularAnimation, ...] = (
     RegularAnimation("idle", "Idle", 0),
     RegularAnimation("running-right", "Legacy run right", 1),
     RegularAnimation("running-left", "Legacy run left", 2),
@@ -98,26 +96,26 @@ REGULAR_ANIMATIONS: Tuple[RegularAnimation, ...] = (
     RegularAnimation("working", "Working", 7),
     RegularAnimation("review", "Review", 8),
     RegularAnimation("angry-stomp", "Angry stomp", 11),
-    RegularAnimation("walk", "Walk right", 12),
-    RegularAnimation("walk-left", "Walk left", 13),
-    RegularAnimation("jog", "Jog right", 14),
-    RegularAnimation("jog-left", "Jog left", 15),
-    RegularAnimation("sprint", "Sprint right", 16),
-    RegularAnimation("sprint-left", "Sprint left", 17),
+)
+
+BUILTIN_EXTENSION_ANIMATIONS: Tuple[RegularAnimation, ...] = (
+    RegularAnimation("adorable", "Built-in adorable", 12),
+    RegularAnimation("laughing", "Built-in laughing", 13),
+    RegularAnimation("crying", "Built-in crying", 14),
+    RegularAnimation("builtin-exclusive", "White-dress starlight reveal", 15),
+)
+
+EXTERNAL_EXTENSION_ANIMATIONS: Tuple[RegularAnimation, ...] = (
+    RegularAnimation("skin-exclusive", "External skin exclusive action", 15),
+)
+
+PUBLIC_IDLE_ANIMATIONS: Tuple[RegularAnimation, ...] = (
     RegularAnimation("handdance", "Hand dance", 18),
     RegularAnimation("singing", "Singing", 19),
     RegularAnimation("heroine", "Heroine acting", 20),
     RegularAnimation("flyingkiss", "Flying kiss", 21),
 )
 
-CONTACT_SHEET_IDS = (
-    "walk",
-    "jog",
-    "sprint",
-    "handdance",
-    "sitting-phone-loop",
-    "side-rest-entry-wake",
-)
 CONTACT_SHEET_SAMPLE_COUNT = 8
 
 
@@ -137,6 +135,19 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=project_root / "work" / "xiaoxiwei" / "standalone-4k" / "runtime-smoothing-qa",
         help="Destination for GIFs and runtime-smoothing-qa-report.json.",
+    )
+    parser.add_argument(
+        "--action-profile",
+        choices=(
+            "built-in-v305", "built-in-v306", "external-v304",
+            "external-v306", "external-v306-linan",
+        ),
+        default="built-in-v306",
+        help=(
+            "Select the runtime-visible r12-r15 action mapping for QA labels. "
+            "external-v306-linan also renders the manual persistent swing entry, "
+            "loop, and click-to-dismount contract."
+        ),
     )
     return parser.parse_args()
 
@@ -273,10 +284,6 @@ def transition_timing(
             MINIMUM_TICK_MS,
             int(round(authored / float(reference_steps))),
         )
-        if row in (12, 13):
-            reference_interval = max(WALK_TICK_MS, reference_interval)
-        elif row in (14, 15):
-            reference_interval = max(JOG_TICK_MS, reference_interval)
     motion_duration = reference_interval * reference_steps
     hold_candidate = authored - motion_duration
     hold = hold_candidate if hold_candidate >= MINIMUM_TICK_MS else 0
@@ -371,8 +378,9 @@ def remember_contact_sheet_samples(
     animation_id: str,
     label: str,
     frames: Sequence[Image.Image],
+    selected_ids: Sequence[str],
 ) -> None:
-    if animation_id not in CONTACT_SHEET_IDS:
+    if animation_id not in selected_ids:
         return
     indices = evenly_spaced_indices(len(frames), CONTACT_SHEET_SAMPLE_COUNT)
     destination[animation_id] = {
@@ -388,8 +396,9 @@ def remember_contact_sheet_samples(
 def save_contact_sheet(
     output_path: Path,
     sampled: Dict[str, Dict[str, object]],
+    animation_ids: Sequence[str],
 ) -> Dict[str, object]:
-    missing = [animation_id for animation_id in CONTACT_SHEET_IDS if animation_id not in sampled]
+    missing = [animation_id for animation_id in animation_ids if animation_id not in sampled]
     if missing:
         raise ValueError("Missing contact-sheet animations: " + ", ".join(missing))
 
@@ -401,7 +410,7 @@ def save_contact_sheet(
     row_height = image_height + stage_label_height
     sheet_size = (
         row_label_width + CONTACT_SHEET_SAMPLE_COUNT * cell_width,
-        header_height + len(CONTACT_SHEET_IDS) * row_height,
+        header_height + len(animation_ids) * row_height,
     )
     sheet = Image.new("RGB", sheet_size, BACKGROUND[:3])
     draw = ImageDraw.Draw(sheet)
@@ -413,7 +422,7 @@ def save_contact_sheet(
     divider = (58, 63, 71)
 
     draw.text((12, 8), "Runtime smoothing QA - 8 evenly spaced stages", font=header_font, fill=bright)
-    for row_index, animation_id in enumerate(CONTACT_SHEET_IDS):
+    for row_index, animation_id in enumerate(animation_ids):
         item = sampled[animation_id]
         label = str(item["label"])
         stage_count = int(item["stageCount"])
@@ -452,10 +461,10 @@ def save_contact_sheet(
         "sha256": digest,
         "size": list(sheet.size),
         "sampleCountPerAnimation": CONTACT_SHEET_SAMPLE_COUNT,
-        "animationOrder": list(CONTACT_SHEET_IDS),
+        "animationOrder": list(animation_ids),
         "sampledStageIndicesZeroBased": {
             animation_id: list(sampled[animation_id]["indices"])
-            for animation_id in CONTACT_SHEET_IDS
+            for animation_id in animation_ids
         },
     }
 
@@ -561,12 +570,34 @@ def main() -> int:
     args = parse_args()
     frames_root = args.frames_root.expanduser().resolve()
     output_dir = args.output_dir.expanduser().resolve()
+    if args.action_profile in ("built-in-v305", "built-in-v306"):
+        extension_animations = BUILTIN_EXTENSION_ANIMATIONS
+    elif args.action_profile == "external-v306-linan":
+        # Lin'an's r15 is a persistent state with a custom frame sequence,
+        # rendered separately below instead of as a one-shot 0..7 cycle.
+        extension_animations = ()
+    else:
+        extension_animations = EXTERNAL_EXTENSION_ANIMATIONS
+    regular_animations = BASE_REGULAR_ANIMATIONS + extension_animations + PUBLIC_IDLE_ANIMATIONS
+    if args.action_profile in ("built-in-v305", "built-in-v306"):
+        contact_sheet_ids = (
+            "adorable", "laughing", "crying", "builtin-exclusive",
+            "flyingkiss", "sitting-phone-loop", "side-rest-entry-wake",
+        )
+    elif args.action_profile == "external-v306-linan":
+        contact_sheet_ids = (
+            "linan-swing", "flyingkiss", "sitting-phone-loop", "side-rest-entry-wake",
+        )
+    else:
+        contact_sheet_ids = (
+            "skin-exclusive", "flyingkiss", "sitting-phone-loop", "side-rest-entry-wake",
+        )
     validate_contract(frames_root)
     output_dir.mkdir(parents=True, exist_ok=True)
     store = FrameStore(frames_root)
 
     all_refs: List[FrameRef] = []
-    for animation in REGULAR_ANIMATIONS:
+    for animation in regular_animations:
         all_refs.extend(FrameRef(animation.row, column) for column in range(RUNTIME_FRAME_COUNTS[animation.row]))
     all_refs.extend(FrameRef(22, column) for column in range(8))
     all_refs.extend(FrameRef(23, column) for column in range(8))
@@ -575,7 +606,7 @@ def main() -> int:
 
     entries: List[Dict[str, object]] = []
     contact_samples: Dict[str, Dict[str, object]] = {}
-    for animation in REGULAR_ANIMATIONS:
+    for animation in regular_animations:
         transitions = regular_transitions(animation.row)
         frames, durations, steps = render_transitions(
             store,
@@ -589,6 +620,7 @@ def main() -> int:
             animation.animation_id,
             animation.label,
             frames,
+            contact_sheet_ids,
         )
         entries.append(
             report_entry(
@@ -603,6 +635,74 @@ def main() -> int:
                 (animation.row,),
             )
         )
+
+    if args.action_profile == "external-v306-linan":
+        # Manual persistent swing contract:
+        # enter 0->1->2; loop low-A 2 -> forward 3 -> low-B 4 -> back 5
+        # -> low-A 2.  A click requests exit, which waits for c2 before
+        # dismounting 2->6->7->idle.  Two preview cycles exercise the 5->2->3
+        # boundary where an old numeric ping-pong loop repeated "forward".
+        swing_entry_refs = [FrameRef(15, column) for column in (0, 1, 2)]
+        swing_loop_refs = [FrameRef(15, column) for column in (2, 3, 4, 5, 2)]
+        swing_exit_refs = [FrameRef(15, column) for column in (2, 6, 7)] + [FrameRef(0, 0)]
+        swing_entry_frames, swing_entry_durations, swing_entry_steps = render_transitions(
+            store, list(zip(swing_entry_refs[:-1], swing_entry_refs[1:])), 2
+        )
+        swing_loop_frames, swing_loop_durations, swing_loop_steps = render_transitions(
+            store, list(zip(swing_loop_refs[:-1], swing_loop_refs[1:])), 4
+        )
+        swing_exit_frames, swing_exit_durations, swing_exit_steps = render_transitions(
+            store, list(zip(swing_exit_refs[:-1], swing_exit_refs[1:])), 3
+        )
+        swing_frames = (
+            swing_entry_frames + swing_loop_frames + swing_loop_frames + swing_exit_frames
+        )
+        swing_durations = (
+            swing_entry_durations
+            + swing_loop_durations
+            + swing_loop_durations
+            + swing_exit_durations
+        )
+        swing_path = output_dir / "linan-swing-entry-loop-click-exit.gif"
+        swing_digest = save_gif(swing_path, swing_frames, swing_durations, palette)
+        remember_contact_sheet_samples(
+            contact_samples,
+            "linan-swing",
+            "Lin'an persistent swing + click dismount",
+            swing_frames,
+            contact_sheet_ids,
+        )
+        swing_entry_stage_count = len(swing_entry_frames)
+        swing_loop_stage_count = len(swing_loop_frames)
+        swing_exit_stage_count = len(swing_exit_frames)
+        swing_entry = report_entry(
+            "linan-swing",
+            "Manual Lin'an swing: mount, persistent loop, click at low point to dismount",
+            swing_path,
+            swing_entry_stage_count + (2 * swing_loop_stage_count) + swing_exit_stage_count,
+            len(swing_frames),
+            swing_durations,
+            (swing_entry_steps, swing_loop_steps, swing_exit_steps),
+            swing_digest,
+            (15, 0),
+            {
+                "entryTweenStages": swing_entry_stage_count,
+                "loopTweenStagesPerCycle": swing_loop_stage_count,
+                "previewLoopCycles": 2,
+                "exitTweenStages": swing_exit_stage_count,
+            },
+        )
+        swing_entry.update(
+            {
+                "manualOnly": True,
+                "randomIdleEligible": False,
+                "clickExitWaitsForLowPoint": True,
+                "exitStartsAtFrame": 2,
+                "loopFrames": [2, 3, 4, 5, 2],
+                "strictAlternatingDepthPeaks": True,
+            }
+        )
+        entries.append(swing_entry)
 
     # Runtime phone loop: 3 -> 4 -> 5 -> 4 -> 3.  Four transitions times
     # six display stages is exactly the configured 24-stage loop.
@@ -620,6 +720,7 @@ def main() -> int:
         "sitting-phone-loop",
         "Sitting phone loop",
         sitting_frames,
+        contact_sheet_ids,
     )
     entries.append(
         report_entry(
@@ -657,6 +758,7 @@ def main() -> int:
         "side-rest-entry-wake",
         "Side-rest entry + sleep + wake",
         side_frames,
+        contact_sheet_ids,
     )
     entries.append(
         report_entry(
@@ -692,13 +794,14 @@ def main() -> int:
             failures.append(f"{entry['id']}: fewer than {MINIMUM_STAGES} stages")
 
     contact_sheet_path = output_dir / "runtime-smoothing-contact-sheet.png"
-    contact_sheet = save_contact_sheet(contact_sheet_path, contact_samples)
+    contact_sheet = save_contact_sheet(contact_sheet_path, contact_samples, contact_sheet_ids)
 
     report = {
         "schemaVersion": 1,
         "ok": not failures,
         "framesRoot": str(frames_root),
         "outputDirectory": str(output_dir),
+        "actionProfile": args.action_profile,
         "sourceFrameSize": list(SOURCE_SIZE),
         "qaFrameSize": list(QA_SIZE),
         "backgroundRgba": list(BACKGROUND),
@@ -712,9 +815,10 @@ def main() -> int:
             "gazeRowsExcluded": [9, 10],
             "gifTimingNote": (
                 "GIF delays use a minimum 20 ms clock and 10 ms quantization; "
-                "gifPreviewDurationMs can therefore be longer than the executable's jog/sprint cadence."
+                "gifPreviewDurationMs can therefore be slightly longer than the executable's timer cadence."
             ),
             "runtimeCadenceAuthority": "XiaoXiWeiPet executable self-test",
+            "linanPersistentSwingManualOnly": args.action_profile == "external-v306-linan",
         },
         "animationCount": len(entries),
         "animations": entries,

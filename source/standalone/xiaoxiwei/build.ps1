@@ -26,6 +26,7 @@ $frameWork = Join-Path $workspace 'work\xiaoxiwei\standalone-4k'
 $archive = Join-Path $project 'frames-4k.zip'
 $frameBuilder = Join-Path $project 'build_hd_frames.py'
 $motionBuilder = Join-Path $project 'build_motion_fields.py'
+$paletteValidator = Join-Path $project 'validate_action_palette.py'
 $motionRoot = Join-Path $frameWork 'motion'
 $icon = Join-Path $project 'xiaoxiwei.ico'
 $manifest = Join-Path $project 'app.manifest'
@@ -34,6 +35,7 @@ $outputDirectory = Join-Path $workspace 'outputs\xiaoxiwei-standalone-4k-v3'
 $motionReport = Join-Path $outputDirectory 'motion-build-report.json'
 $motionContact = Join-Path $outputDirectory 'motion-ghost-free-contact.png'
 $frameReport = Join-Path $outputDirectory 'frame-build-report.json'
+$paletteReport = Join-Path $outputDirectory 'flyingkiss-hair-palette-report.json'
 $comparison = Join-Path $outputDirectory 'quality-comparison.png'
 $output = Join-Path $outputDirectory '小曦薇.exe'
 
@@ -41,14 +43,16 @@ if (-not (Test-Path -LiteralPath $compiler)) { throw "C# compiler not found: $co
 if (-not (Test-Path -LiteralPath $python)) { throw "Bundled Python not found: $python" }
 if (-not (Test-Path -LiteralPath $frameBuilder)) { throw "Frame builder not found: $frameBuilder" }
 if (-not (Test-Path -LiteralPath $motionBuilder)) { throw "Motion builder not found: $motionBuilder" }
+if (-not (Test-Path -LiteralPath $paletteValidator)) { throw "Action palette validator not found: $paletteValidator" }
 if (-not (Test-Path -LiteralPath $icon)) { throw "Icon not found: $icon" }
 if (-not (Test-Path -LiteralPath (Join-Path $run 'decoded\angry-stomp.png'))) { throw 'Angry-stomp source row is missing.' }
+if (-not (Test-Path -LiteralPath (Join-Path $run 'decoded\idle-builtin-exclusive.png'))) { throw 'Built-in exclusive action source row is missing.' }
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
 & $python $frameBuilder `
   --run-dir $run `
-  --action-profile built-in-v304 `
+  --action-profile built-in-v306 `
   --skill-dir $skill `
   --output-dir $frameWork `
   --archive $archive `
@@ -57,6 +61,12 @@ New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
 if ($LASTEXITCODE -ne 0) { throw "4K frame recovery failed with exit code $LASTEXITCODE" }
 if (-not (Test-Path -LiteralPath $archive)) { throw "4K frame archive not found: $archive" }
+
+& $python $paletteValidator `
+  --frames-root (Join-Path $frameWork 'frames') `
+  --report $paletteReport
+
+if ($LASTEXITCODE -ne 0) { throw "Flying-kiss hair palette QA failed with exit code $LASTEXITCODE" }
 
 & $python $motionBuilder `
   --frames-root (Join-Path $frameWork 'frames') `

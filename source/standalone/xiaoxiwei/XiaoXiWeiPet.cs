@@ -18,13 +18,13 @@ using System.Windows.Forms;
 using FormsTimer = System.Windows.Forms.Timer;
 
 [assembly: AssemblyTitle("小曦薇")]
-[assembly: AssemblyDescription("小曦薇｜4K 写实粉丝向桌面互动角色｜v3.0.4｜开发者：Anbunengsi｜个人非商用")]
+[assembly: AssemblyDescription("小曦薇｜4K 写实粉丝向桌面互动角色｜v3.0.6｜开发者：Anbunengsi｜个人非商用")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("小曦薇")]
 [assembly: AssemblyTrademark("开发者：Anbunengsi")]
 [assembly: AssemblyCopyright("仅供粉丝非商用使用")]
-[assembly: AssemblyVersion("3.0.4.0")]
-[assembly: AssemblyFileVersion("3.0.4.0")]
+[assembly: AssemblyVersion("3.0.6.0")]
+[assembly: AssemblyFileVersion("3.0.6.0")]
 
 namespace XiaoXiWei.Standalone
 {
@@ -332,7 +332,7 @@ namespace XiaoXiWei.Standalone
             builder.AppendLine("{");
             builder.AppendLine("  \"ok\": " + (ok ? "true" : "false") + ",");
             builder.AppendLine("  \"application\": \"小曦薇\",");
-            builder.AppendLine("  \"version\": \"3.0.4\",");
+            builder.AppendLine("  \"version\": \"3.0.6\",");
             builder.AppendLine("  \"codexDependency\": false,");
             builder.AppendLine("  \"atlasEmbedded\": true,");
             builder.AppendLine("  \"atlasResource\": \"" + AtlasResource.ResourceName + "\",");
@@ -755,7 +755,7 @@ namespace XiaoXiWei.Standalone
                 "Anbunengsi",
                 string.Empty,
                 true,
-                string.Empty));
+                "白裙星光亮相"));
 
             try
             {
@@ -969,7 +969,7 @@ namespace XiaoXiWei.Standalone
     {
         // Each action keeps its authored key poses in frames.zip.  The runtime
         // fills the gaps between them so skins stay compact while motion is
-        // presented with at least this many stages per complete cycle.  v3.0.4
+        // presented with at least this many stages per complete cycle.  v3.0.6
         // renders 24 stages while preserving the established v3.0.1 cadence.
         public const int MinimumStagesPerCycle = 24;
         public const int TimingReferenceStagesPerCycle = 56;
@@ -1157,6 +1157,63 @@ namespace XiaoXiWei.Standalone
         public const int SideRestSleepFrame = 4;
         public const int SideRestWakeFirstFrame = 5;
         public const int SideRestWakeLastFrame = 7;
+
+        public const int LinanSwingEnterLastFrame = 2;
+        public const int LinanSwingLoopFirstFrame = 2;
+        public const int LinanSwingLoopLastFrame = 5;
+        public const int LinanSwingExitFirstFrame = 6;
+        public const int LinanSwingExitLastFrame = 7;
+    }
+
+    internal static class LinanSwingContract
+    {
+        public const string SkinId = "linan-princess";
+        public const int LoopTransitionCount = 4;
+
+        public static int GetNextLoopFrame(int currentFrame)
+        {
+            switch (currentFrame)
+            {
+                case 2:
+                    return 3;
+                case 3:
+                    return 4;
+                case 4:
+                    return 5;
+                case 5:
+                    return 2;
+                default:
+                    return PersistentActionContract.LinanSwingLoopFirstFrame;
+            }
+        }
+
+        public static bool HasAlternatingDepthPeaks()
+        {
+            int[] expected = new int[] { 2, 3, 4, 5, 2, 3, 4, 5, 2 };
+            int frame = expected[0];
+            for (int index = 1; index < expected.Length; index++)
+            {
+                frame = GetNextLoopFrame(frame);
+                if (frame != expected[index])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public static bool IsEnabled(SkinPack skin)
+        {
+            return skin != null
+                && !skin.IsBuiltIn
+                && string.Equals(skin.Id, SkinId, StringComparison.OrdinalIgnoreCase)
+                && skin.HasExclusiveAction;
+        }
+
+        public static bool IsRandomEligible(PetState state, SkinPack skin)
+        {
+            return state != PetState.SkinExclusive || !IsEnabled(skin);
+        }
     }
 
     internal enum DragReleaseAction
@@ -1993,6 +2050,10 @@ namespace XiaoXiWei.Standalone
             int sittingPhoneLoopStages = 4 * AnimationSmoothing.GetStepsPerTransition(4);
             int sittingEnterExitStages = 3 * AnimationSmoothing.GetStepsPerTransition(3);
             int sideRestSegmentStages = 4 * AnimationSmoothing.GetStepsPerTransition(4);
+            int linanSwingEnterStages = 2 * AnimationSmoothing.GetStepsPerTransition(2);
+            int linanSwingLoopStages = LinanSwingContract.LoopTransitionCount
+                * AnimationSmoothing.GetStepsPerTransition(LinanSwingContract.LoopTransitionCount);
+            int linanSwingExitStages = 3 * AnimationSmoothing.GetStepsPerTransition(3);
             int movementStages = AnimationSmoothing.GetDisplayStageCount(8);
             int maximumRuntimeDisplayStages = 0;
             foreach (int keyFrameCount in PetForm.FrameCounts)
@@ -2023,6 +2084,9 @@ namespace XiaoXiWei.Standalone
                 && sittingPhoneLoopStages == 24
                 && sittingEnterExitStages == 24
                 && sideRestSegmentStages == 24
+                && linanSwingEnterStages == 24
+                && linanSwingLoopStages == 24
+                && linanSwingExitStages == 24
                 && walkCycleMilliseconds == 1344
                 && jogCycleMilliseconds == 1064
                 && sprintCycleMilliseconds == 896
@@ -2036,6 +2100,7 @@ namespace XiaoXiWei.Standalone
             bool fourKActiveCycleCacheFits = maximumFourKActiveRowBytes <= ScaledFrameCache.BudgetBytes;
             bool sittingPhoneContractValid = false;
             bool sideRestContractValid = false;
+            bool linanSwingContractValid = false;
             bool tweenRenderValid = false;
             bool motionFieldLoaded = false;
             bool ghostFreeSingleOwner = false;
@@ -2047,6 +2112,8 @@ namespace XiaoXiWei.Standalone
             bool lookTrackingContractValid = false;
             bool skinTransitionBodyTurnContractValid = false;
             bool extensionActionContractValid = false;
+            bool builtInExclusiveActionEnabled = false;
+            string builtInExclusiveActionName = string.Empty;
             int dragReleaseAngryDurationMilliseconds = 0;
             string skinTransitionPreviewPath = BuildSkinTransitionPreviewPath(previewPath);
             string motionPreviewPath = BuildSiblingPreviewPath(previewPath, "-motion-interpolation");
@@ -2123,6 +2190,14 @@ namespace XiaoXiWei.Standalone
                     }
                 }
 
+                SkinPack builtInSkin = SkinCatalog.Discover().BuiltIn;
+                builtInExclusiveActionName = builtInSkin.ExclusiveActionName;
+                builtInExclusiveActionEnabled = builtInSkin.IsBuiltIn
+                    && builtInSkin.HasExclusiveAction
+                    && string.Equals(
+                        builtInExclusiveActionName,
+                        "白裙星光亮相",
+                        StringComparison.Ordinal);
                 extensionActionContractValid = (int)PetState.Adorable == 12
                     && (int)PetState.Laughing == 13
                     && (int)PetState.Crying == 14
@@ -2131,11 +2206,12 @@ namespace XiaoXiWei.Standalone
                     && PetForm.FrameCounts[(int)PetState.Laughing] == 8
                     && PetForm.FrameCounts[(int)PetState.Crying] == 8
                     && PetForm.FrameCounts[(int)PetState.SkinExclusive] == 8
+                    && builtInExclusiveActionEnabled
                     && !DragReactionContract.MovementRowsRuntimeEnabled
                     && !DragReactionContract.AutomaticRoamingEnabled;
                 if (!extensionActionContractValid)
                 {
-                    errors.Add("v3.0.4 extended idle-action row contract is invalid");
+                    errors.Add("v3.0.6 extended idle-action row contract is invalid");
                 }
 
                 sittingPhoneContractValid = PetForm.FrameCounts.Length > (int)PetState.Sitting
@@ -2156,6 +2232,46 @@ namespace XiaoXiWei.Standalone
                 if (!sideRestContractValid)
                 {
                     errors.Add("persistent side-rest frame contract is invalid");
+                }
+
+                SkinPack linanSwingProbe = new SkinPack(
+                    LinanSwingContract.SkinId,
+                    "QA Linan",
+                    "Anbunengsi",
+                    string.Empty,
+                    false,
+                    "荡秋千");
+                SkinPack nonLinanExclusiveProbe = new SkinPack(
+                    "huang-chengzi",
+                    "QA Other",
+                    "Anbunengsi",
+                    string.Empty,
+                    false,
+                    "专属动作");
+                SkinPack noExclusiveActionProbe = new SkinPack(
+                    LinanSwingContract.SkinId,
+                    "QA Linan disabled",
+                    "Anbunengsi",
+                    string.Empty,
+                    false,
+                    string.Empty);
+                linanSwingContractValid = PetForm.FrameCounts.Length > (int)PetState.SkinExclusive
+                    && PetForm.FrameCounts[(int)PetState.SkinExclusive] > PersistentActionContract.LinanSwingExitLastFrame
+                    && PersistentActionContract.LinanSwingEnterLastFrame == PersistentActionContract.LinanSwingLoopFirstFrame
+                    && PersistentActionContract.LinanSwingLoopLastFrame + 1
+                        == PersistentActionContract.LinanSwingExitFirstFrame
+                    && linanSwingEnterStages >= AnimationSmoothing.MinimumStagesPerCycle
+                    && linanSwingLoopStages >= AnimationSmoothing.MinimumStagesPerCycle
+                    && linanSwingExitStages >= AnimationSmoothing.MinimumStagesPerCycle
+                    && LinanSwingContract.HasAlternatingDepthPeaks()
+                    && LinanSwingContract.IsEnabled(linanSwingProbe)
+                    && !LinanSwingContract.IsEnabled(nonLinanExclusiveProbe)
+                    && !LinanSwingContract.IsEnabled(noExclusiveActionProbe)
+                    && !LinanSwingContract.IsRandomEligible(PetState.SkinExclusive, linanSwingProbe)
+                    && LinanSwingContract.IsRandomEligible(PetState.SkinExclusive, nonLinanExclusiveProbe);
+                if (!linanSwingContractValid)
+                {
+                    errors.Add("Linan Princess manual swing contract is invalid");
                 }
 
                 for (int frame = DragReactionContract.AngryFirstFrame;
@@ -2465,6 +2581,9 @@ namespace XiaoXiWei.Standalone
                 sittingPhoneLoopStages,
                 sittingEnterExitStages,
                 sideRestSegmentStages,
+                linanSwingEnterStages,
+                linanSwingLoopStages,
+                linanSwingExitStages,
                 walkCycleMilliseconds,
                 jogCycleMilliseconds,
                 sprintCycleMilliseconds,
@@ -2481,6 +2600,7 @@ namespace XiaoXiWei.Standalone
                 skinTransitionPreviewPath,
                 sittingPhoneContractValid,
                 sideRestContractValid,
+                linanSwingContractValid,
                 dragReactionContractValid,
                 dragReleaseAngryDurationMilliseconds,
                 tweenRenderValid,
@@ -2488,6 +2608,8 @@ namespace XiaoXiWei.Standalone
                 ghostFreeSingleOwner,
                 motionPreviewPath,
                 headEmitterValid,
+                builtInExclusiveActionEnabled,
+                builtInExclusiveActionName,
                 errors,
                 ok);
             return ok ? 0 : 2;
@@ -2802,6 +2924,9 @@ namespace XiaoXiWei.Standalone
             int sittingPhoneLoopStages,
             int sittingEnterExitStages,
             int sideRestSegmentStages,
+            int linanSwingEnterStages,
+            int linanSwingLoopStages,
+            int linanSwingExitStages,
             int walkCycleMilliseconds,
             int jogCycleMilliseconds,
             int sprintCycleMilliseconds,
@@ -2818,6 +2943,7 @@ namespace XiaoXiWei.Standalone
             string skinTransitionPreviewPath,
             bool sittingPhoneContractValid,
             bool sideRestContractValid,
+            bool linanSwingContractValid,
             bool dragReactionContractValid,
             int dragReleaseAngryDurationMilliseconds,
             bool tweenRenderValid,
@@ -2825,6 +2951,8 @@ namespace XiaoXiWei.Standalone
             bool ghostFreeSingleOwner,
             string motionPreviewPath,
             bool headEmitterValid,
+            bool builtInExclusiveActionEnabled,
+            string builtInExclusiveActionName,
             List<string> errors,
             bool ok)
         {
@@ -2839,7 +2967,7 @@ namespace XiaoXiWei.Standalone
             builder.AppendLine("{");
             builder.AppendLine("  \"ok\": " + (ok ? "true" : "false") + ",");
             builder.AppendLine("  \"application\": \"小曦薇\",");
-            builder.AppendLine("  \"version\": \"3.0.4\",");
+            builder.AppendLine("  \"version\": \"3.0.6\",");
             builder.AppendLine("  \"developer\": \"Anbunengsi\",");
             builder.AppendLine("  \"frameArchiveEmbedded\": true,");
             builder.AppendLine("  \"frameArchiveResource\": \"" + FrameResource.ResourceName + "\",");
@@ -2874,9 +3002,25 @@ namespace XiaoXiWei.Standalone
             builder.AppendLine("  \"lookTrackingFarPointerReturnsBlinkOnlyIdle\": " + (MouseLookContract.FarPointerReturnsBlinkOnlyIdle ? "true" : "false") + ",");
             builder.AppendLine("  \"movementRowsRuntimeEnabled\": " + (DragReactionContract.MovementRowsRuntimeEnabled ? "true" : "false") + ",");
             builder.AppendLine("  \"automaticRoamingEnabled\": " + (DragReactionContract.AutomaticRoamingEnabled ? "true" : "false") + ",");
-            builder.AppendLine("  \"builtInExtendedActionRows\": [12, 13, 14],");
+            builder.AppendLine("  \"builtInExtendedActionRows\": [12, 13, 14, 15],");
+            builder.AppendLine("  \"builtInExclusiveActionEnabled\": " + (builtInExclusiveActionEnabled ? "true" : "false") + ",");
+            builder.AppendLine("  \"builtInExclusiveActionName\": \"" + EscapeJson(builtInExclusiveActionName) + "\",");
             builder.AppendLine("  \"skinExclusiveActionRow\": 15,");
             builder.AppendLine("  \"skinExclusiveActionMetadataOptIn\": \"exclusiveAction\",");
+            builder.AppendLine("  \"linanSwingSkinId\": \"" + LinanSwingContract.SkinId + "\",");
+            builder.AppendLine("  \"linanSwingActionRow\": 15,");
+            builder.AppendLine("  \"linanSwingManualOnly\": true,");
+            builder.AppendLine("  \"linanSwingPersistentUntilClick\": " + (linanSwingContractValid ? "true" : "false") + ",");
+            builder.AppendLine("  \"linanSwingEnterFrames\": \"0-1-2\",");
+            builder.AppendLine("  \"linanSwingLoopFrames\": \"2-3-4-5-2\",");
+            builder.AppendLine("  \"linanSwingLoopTransitionCount\": " + LinanSwingContract.LoopTransitionCount + ",");
+            builder.AppendLine("  \"linanSwingLoopWrapFrames\": \"5-2\",");
+            builder.AppendLine("  \"linanSwingClickExitFrames\": \"2-6-7-idle\",");
+            builder.AppendLine("  \"linanSwingExitWaitFrame\": 2,");
+            builder.AppendLine("  \"linanSwingAlternatingDepthPeaks\": " + (LinanSwingContract.HasAlternatingDepthPeaks() ? "true" : "false") + ",");
+            builder.AppendLine("  \"linanSwingEnterDisplayStages\": " + linanSwingEnterStages + ",");
+            builder.AppendLine("  \"linanSwingLoopDisplayStages\": " + linanSwingLoopStages + ",");
+            builder.AppendLine("  \"linanSwingExitDisplayStages\": " + linanSwingExitStages + ",");
             builder.AppendLine("  \"walkCycleMilliseconds\": " + walkCycleMilliseconds + ",");
             builder.AppendLine("  \"jogCycleMilliseconds\": " + jogCycleMilliseconds + ",");
             builder.AppendLine("  \"sprintCycleMilliseconds\": " + sprintCycleMilliseconds + ",");
@@ -3456,7 +3600,7 @@ namespace XiaoXiWei.Standalone
         private bool _temporaryAction;
         private bool _paused;
         // Automatic roaming is intentionally unavailable. Rows 12-15 are
-        // opt-in action slots in v3.0.4; rows 16-17 remain compatibility-only.
+        // opt-in action slots introduced in v3.0.4; rows 16-17 remain compatibility-only.
         private readonly bool _roamingEnabled = DragReactionContract.AutomaticRoamingEnabled;
         private bool _movingToTarget;
         private int _roamTargetX;
@@ -3484,6 +3628,10 @@ namespace XiaoXiWei.Standalone
         private bool _sittingPhoneExiting;
         private bool _sittingExitRequested;
         private int _sittingLoopDirection;
+        private bool _linanSwingActive;
+        private bool _linanSwingHolding;
+        private bool _linanSwingExiting;
+        private bool _linanSwingExitRequested;
         private int _tweenStep;
         private bool _longKeyFrameHoldConsumed;
         private int _currentRow;
@@ -3651,6 +3799,15 @@ namespace XiaoXiWei.Standalone
                 return;
             }
 
+            // Linan's swing is intentionally a manual-only persistent action.
+            // Its click exit is consumed until the loop reaches frame 2.
+            if (_state == PetState.SkinExclusive && _linanSwingActive)
+            {
+                _pendingDoubleClickWave = false;
+                ExitLinanSwing();
+                return;
+            }
+
             ResetDragReactionState();
             _dragging = true;
             if (_temporaryAction && IsIdleActionState(_state))
@@ -3713,7 +3870,8 @@ namespace XiaoXiWei.Standalone
                     || _sideRestWaking
                     || _state == PetState.Sitting
                     || _sittingPhoneHolding
-                    || _sittingPhoneExiting))
+                    || _sittingPhoneExiting
+                    || (_state == PetState.SkinExclusive && _linanSwingActive)))
             {
                 _pendingDoubleClickWave = false;
                 return;
@@ -3758,6 +3916,7 @@ namespace XiaoXiWei.Standalone
                 DisposeSkinTransitionResources();
                 ResetSideRestState();
                 ResetSittingPhoneState();
+                ResetLinanSwingState();
                 if (_weiboMonitor != null)
                 {
                     _weiboMonitor.Dispose();
@@ -3891,7 +4050,7 @@ namespace XiaoXiWei.Standalone
             aboutItem.Click += delegate
             {
                 MessageBox.Show(
-                    "左键拖动：拖动达到阈值后她会吓一跳；被拖动时保持受惊，松手后会叉腰跺脚生气\n双击：挥手\n鼠标滚轮：调整大小\n鼠标靠近一定范围：她会平滑看向鼠标；移远后立即回到只眨眼的普通待机\n安静待机：普通眨眼为主，静止一段时间后会随机表演；内置白裙另有卖萌、大笑和哭，支持声明皮肤专属动作\n坐下玩手机：坐下后会一直玩手机，左键点她才会收起手机并起身\n侧躺入睡：她会一直安睡，z/Z 从头顶向上飘；左键点她会伸懒腰后起身\n切换皮肤：人物会分层伪3D转身，在半圈中由头到脚完成变装并定格；短暂变身期间动作输入会锁定\n右键：可手动预览待机动作，或调整皮肤、微博提醒和设置\nCtrl+Q：退出\n\n微博提醒读取新浪公开页面，每约10分钟低频检查一次；首次只建立基线。公开页面可能延迟，也可能因页面改版而暂时失效；断网时不会弹出错误。\n\n【皮肤包接口】\n可在程序同级创建 skins\\<id>\\skin.xml 和 frames.zip。skin.xml 根元素格式为 <skin apiVersion=\"1\" id=\"...\" name=\"...\" developer=\"...\" archive=\"frames.zip\" exclusiveAction=\"可选菜单名\"/>；exclusiveAction 非空时 r15 作为该皮肤专属动作。帧文件使用 r00/c00.png 的固定命名、相同动作行映射和 528×808 尺寸。程序会在运行时为关键帧生成至少24个平滑显示阶段；皮肤包无需膨胀帧数。缺帧、路径异常或尺寸不符的皮肤会被静默跳过并自动回退内置白裙。\n\n开发者：Anbunengsi\n\n【免责声明】\n本程序由个人独立开发，仅供田曦薇粉丝个人欣赏、交流与非商业使用，纯属为爱发电。人物姓名、肖像、形象及相关素材的权利归田曦薇本人及相应权利方所有。本程序为非官方作品，与田曦薇本人、工作室、经纪机构及品牌方无官方关联，也不代表已获得其授权。禁止售卖、收费分发、广告引流、商业推广、二次商用、冒用官方名义，或用于侵犯肖像权、名誉权及其他合法权益。若权利方认为内容不妥，请停止传播并联系开发者处理。",
+                    "左键拖动：拖动达到阈值后她会吓一跳；被拖动时保持受惊，松手后会叉腰跺脚生气\n双击：挥手\n鼠标滚轮：调整大小\n鼠标靠近一定范围：她会平滑看向鼠标；移远后立即回到只眨眼的普通待机\n安静待机：普通眨眼为主，静止一段时间后会随机表演；内置白裙另有卖萌、大笑、哭和“白裙星光亮相”，外置皮肤也可声明专属动作\n坐下玩手机：坐下后会一直玩手机，左键点她才会收起手机并起身\n侧躺入睡：她会一直安睡，z/Z 从头顶向上飘；左键点她会伸懒腰后起身\n临安公主：从右键动作菜单手动选择“公主荡秋千”；她会持续摆动，左键点她后会在最低点下秋千\n切换皮肤：人物会分层伪3D转身，在半圈中由头到脚完成变装并定格；短暂变身期间动作输入会锁定\n右键：可手动预览待机动作，或调整皮肤、微博提醒和设置\nCtrl+Q：退出\n\n微博提醒读取新浪公开页面，每约10分钟低频检查一次；首次只建立基线。公开页面可能延迟，也可能因页面改版而暂时失效；断网时不会弹出错误。\n\n【皮肤包接口】\n可在程序同级创建 skins\\<id>\\skin.xml 和 frames.zip。skin.xml 根元素格式为 <skin apiVersion=\"1\" id=\"...\" name=\"...\" developer=\"...\" archive=\"frames.zip\" exclusiveAction=\"可选菜单名\"/>；exclusiveAction 非空时 r15 作为该外置皮肤专属动作。帧文件使用 r00/c00.png 的固定命名、相同动作行映射和 528×808 尺寸。程序会在运行时为关键帧生成至少24个平滑显示阶段；皮肤包无需膨胀帧数。缺帧、路径异常或尺寸不符的皮肤会被静默跳过并自动回退内置白裙。\n\n开发者：Anbunengsi\n\n【免责声明】\n本程序由个人独立开发，仅供田曦薇粉丝个人欣赏、交流与非商业使用，纯属为爱发电。人物姓名、肖像、形象及相关素材的权利归田曦薇本人及相应权利方所有。本程序为非官方作品，与田曦薇本人、工作室、经纪机构及品牌方无官方关联，也不代表已获得其授权。禁止售卖、收费分发、广告引流、商业推广、二次商用、冒用官方名义，或用于侵犯肖像权、名誉权及其他合法权益。若权利方认为内容不妥，请停止传播并联系开发者处理。",
                     "小曦薇",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -3949,14 +4108,31 @@ namespace XiaoXiWei.Standalone
                 AddIdlePreviewItem(_idleMenu, "哈哈哈大笑", PetState.Laughing);
                 AddIdlePreviewItem(_idleMenu, "哭一下", PetState.Crying);
             }
-            else if (_currentSkin != null && _currentSkin.HasExclusiveAction)
+            if (_currentSkin != null && _currentSkin.HasExclusiveAction)
             {
                 _idleMenu.DropDownItems.Add(new ToolStripSeparator());
-                AddIdlePreviewItem(
-                    _idleMenu,
-                    _currentSkin.ExclusiveActionName,
-                    PetState.SkinExclusive);
+                if (IsLinanSwingEnabled())
+                {
+                    AddLinanSwingMenuItem(_idleMenu, _currentSkin.ExclusiveActionName);
+                }
+                else
+                {
+                    AddIdlePreviewItem(
+                        _idleMenu,
+                        _currentSkin.ExclusiveActionName,
+                        PetState.SkinExclusive);
+                }
             }
+        }
+
+        private void AddLinanSwingMenuItem(ToolStripMenuItem parent, string text)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += delegate(object sender, EventArgs eventArgs)
+            {
+                StartLinanSwing();
+            };
+            parent.DropDownItems.Add(item);
         }
 
         private void AddScaleItem(ToolStripMenuItem parent, string text, float scale)
@@ -4172,6 +4348,7 @@ namespace XiaoXiWei.Standalone
             _hasSmoothedLookAngle = false;
             ResetSideRestState();
             ResetSittingPhoneState();
+            ResetLinanSwingState();
             _state = PetState.Idle;
             _stateFrame = 0;
             _tweenStep = 0;
@@ -4460,6 +4637,11 @@ namespace XiaoXiWei.Standalone
                 return;
             }
 
+            if (AdvanceLinanSwingAnimation())
+            {
+                return;
+            }
+
             if (AdvanceSittingAnimation())
             {
                 return;
@@ -4680,7 +4862,7 @@ namespace XiaoXiWei.Standalone
             for (int index = 0; index < IdleActionStates.Length; index++)
             {
                 PetState candidate = IdleActionStates[index];
-                if (IsIdleActionAvailable(candidate)
+                if (IsRandomIdleActionAvailable(candidate)
                     && candidate != _lastIdleAction
                     && candidate != _secondLastIdleAction)
                 {
@@ -4692,7 +4874,7 @@ namespace XiaoXiWei.Standalone
             {
                 for (int index = 0; index < IdleActionStates.Length; index++)
                 {
-                    if (IsIdleActionAvailable(IdleActionStates[index]))
+                    if (IsRandomIdleActionAvailable(IdleActionStates[index]))
                     {
                         return IdleActionStates[index];
                     }
@@ -4704,7 +4886,7 @@ namespace XiaoXiWei.Standalone
             for (int index = 0; index < IdleActionStates.Length; index++)
             {
                 PetState candidate = IdleActionStates[index];
-                if (!IsIdleActionAvailable(candidate)
+                if (!IsRandomIdleActionAvailable(candidate)
                     || candidate == _lastIdleAction
                     || candidate == _secondLastIdleAction)
                 {
@@ -4732,6 +4914,31 @@ namespace XiaoXiWei.Standalone
             StartAction(state, 1);
         }
 
+        private void StartLinanSwing()
+        {
+            if (_skinTransitionActive || !IsLinanSwingEnabled())
+            {
+                return;
+            }
+
+            ResetSideRestState();
+            ResetSittingPhoneState();
+            ResetLinanSwingState();
+            ResetDragReactionState();
+            _movingToTarget = false;
+            _pendingDoubleClickWave = false;
+            _lookIndex = -1;
+            _state = PetState.SkinExclusive;
+            _stateFrame = 0;
+            _tweenStep = 0;
+            _longKeyFrameHoldConsumed = false;
+            _temporaryAction = true;
+            _remainingActionFrames = -1;
+            _linanSwingActive = true;
+            ScheduleCurrentTweenTick();
+            RenderCurrentFrame();
+        }
+
         private static bool IsIdleActionState(PetState state)
         {
             return ((int)state >= (int)PetState.Adorable
@@ -4751,15 +4958,28 @@ namespace XiaoXiWei.Standalone
             {
                 return true;
             }
+            if (state == PetState.SkinExclusive)
+            {
+                return _currentSkin != null && _currentSkin.HasExclusiveAction;
+            }
             if (_currentSkin != null && _currentSkin.IsBuiltIn)
             {
                 return state == PetState.Adorable
                     || state == PetState.Laughing
                     || state == PetState.Crying;
             }
-            return state == PetState.SkinExclusive
-                && _currentSkin != null
-                && _currentSkin.HasExclusiveAction;
+            return false;
+        }
+
+        private bool IsRandomIdleActionAvailable(PetState state)
+        {
+            return IsIdleActionAvailable(state)
+                && LinanSwingContract.IsRandomEligible(state, _currentSkin);
+        }
+
+        private bool IsLinanSwingEnabled()
+        {
+            return LinanSwingContract.IsEnabled(_currentSkin);
         }
 
         private void ScheduleNextIdleAction(bool afterSpecialIdle)
@@ -4784,6 +5004,7 @@ namespace XiaoXiWei.Standalone
 
             ResetSideRestState();
             ResetSittingPhoneState();
+            ResetLinanSwingState();
             _dragActivated = true;
             _dragReactionPhase = DragReactionPhase.Startled;
             _pendingDoubleClickWave = false;
@@ -4923,6 +5144,23 @@ namespace XiaoXiWei.Standalone
                 // Entry and click-exit each contain three transitions.
                 return 3;
             }
+            if (_state == PetState.SkinExclusive && _linanSwingActive)
+            {
+                // Entry has two transitions, the swing loop has four, and
+                // click exit has three; each independently gets 24 stages.
+                if (_linanSwingExiting
+                    || (_linanSwingHolding
+                        && _linanSwingExitRequested
+                        && _stateFrame == PersistentActionContract.LinanSwingLoopFirstFrame))
+                {
+                    return 3;
+                }
+                if (_linanSwingHolding && !_linanSwingExiting)
+                {
+                    return LinanSwingContract.LoopTransitionCount;
+                }
+                return 2;
+            }
             if (_state == PetState.SideRest && !_sideRestSleeping)
             {
                 // Four transitions into sleep and four transitions out.
@@ -5016,6 +5254,7 @@ namespace XiaoXiWei.Standalone
             }
             ResetSideRestState();
             ResetSittingPhoneState();
+            ResetLinanSwingState();
             ResetDragReactionState();
             _movingToTarget = false;
             _state = state;
@@ -5042,6 +5281,7 @@ namespace XiaoXiWei.Standalone
                 Math.Min(actionFrameCount, availableFrames - startFrame));
             ResetSideRestState();
             ResetSittingPhoneState();
+            ResetLinanSwingState();
             ResetDragReactionState();
             _movingToTarget = false;
             _state = state;
@@ -5062,6 +5302,7 @@ namespace XiaoXiWei.Standalone
             }
             ResetSideRestState();
             ResetSittingPhoneState();
+            ResetLinanSwingState();
             ResetDragReactionState();
             int previousFrame = _stateFrame;
             int previousTweenStep = _tweenStep;
@@ -5082,6 +5323,7 @@ namespace XiaoXiWei.Standalone
         {
             ResetSideRestState();
             ResetSittingPhoneState();
+            ResetLinanSwingState();
             ResetDragReactionState();
             _lookIndex = -1;
             _hasSmoothedLookAngle = false;
@@ -5171,6 +5413,7 @@ namespace XiaoXiWei.Standalone
         private void ResetToLowerRight()
         {
             ResetSideRestState();
+            ResetLinanSwingState();
             ResetSittingPhoneState();
             _movingToTarget = false;
             _state = PetState.Idle;
@@ -5335,6 +5578,52 @@ namespace XiaoXiWei.Standalone
                 return false;
             }
 
+            if (_state == PetState.SkinExclusive && _temporaryAction && _linanSwingActive)
+            {
+                if (_linanSwingExiting)
+                {
+                    if (column < PersistentActionContract.LinanSwingExitFirstFrame)
+                    {
+                        targetColumn = PersistentActionContract.LinanSwingExitFirstFrame;
+                    }
+                    else if (column < PersistentActionContract.LinanSwingExitLastFrame)
+                    {
+                        targetColumn = column + 1;
+                    }
+                    else
+                    {
+                        targetRow = (int)PetState.Idle;
+                        targetColumn = 0;
+                    }
+                    return true;
+                }
+
+                if (_linanSwingHolding)
+                {
+                    if (_linanSwingExitRequested
+                        && column == PersistentActionContract.LinanSwingLoopFirstFrame)
+                    {
+                        targetColumn = PersistentActionContract.LinanSwingExitFirstFrame;
+                    }
+                    else
+                    {
+                        // The four authored frames are temporal phases, not
+                        // positions to ping-pong: low A -> forward -> low B ->
+                        // backward -> low A.  Closing 5 -> 2 keeps forward and
+                        // backward peaks strictly alternating at every boundary.
+                        targetColumn = LinanSwingContract.GetNextLoopFrame(column);
+                    }
+                    return true;
+                }
+
+                if (column < PersistentActionContract.LinanSwingEnterLastFrame)
+                {
+                    targetColumn = column + 1;
+                    return true;
+                }
+                return false;
+            }
+
             if (_state == PetState.Sitting && _temporaryAction)
             {
                 if (_sittingPhoneExiting)
@@ -5484,6 +5773,87 @@ namespace XiaoXiWei.Standalone
             _sideRestSleeping = false;
             _sideRestWaking = false;
             _sleepEffectTick = 0;
+        }
+
+        private bool AdvanceLinanSwingAnimation()
+        {
+            if (_state != PetState.SkinExclusive || !_temporaryAction || !_linanSwingActive)
+            {
+                return false;
+            }
+
+            int targetRow;
+            int targetColumn;
+            if (!TryGetTweenTarget((int)PetState.SkinExclusive, _stateFrame, out targetRow, out targetColumn))
+            {
+                return false;
+            }
+
+            int tweenSteps = GetCurrentTweenSteps();
+            _tweenStep++;
+            if (_tweenStep < tweenSteps)
+            {
+                RenderCurrentFrame();
+                ScheduleCurrentTweenTick();
+                return true;
+            }
+
+            _tweenStep = 0;
+            if (targetRow == (int)PetState.Idle)
+            {
+                ReturnToIdle();
+                ScheduleNextIdleAction(true);
+                ScheduleNextRoam(2200);
+                return true;
+            }
+
+            _stateFrame = targetColumn;
+            _longKeyFrameHoldConsumed = false;
+            if (!_linanSwingHolding
+                && !_linanSwingExiting
+                && _stateFrame == PersistentActionContract.LinanSwingEnterLastFrame)
+            {
+                _linanSwingHolding = true;
+                _remainingActionFrames = -1;
+            }
+            else if (_linanSwingHolding
+                && _linanSwingExitRequested
+                && (_stateFrame == PersistentActionContract.LinanSwingLoopFirstFrame
+                    || _stateFrame == PersistentActionContract.LinanSwingExitFirstFrame))
+            {
+                _linanSwingHolding = false;
+                _linanSwingExitRequested = false;
+                _linanSwingExiting = true;
+                _remainingActionFrames = 3;
+            }
+
+            RenderCurrentFrame();
+            ScheduleCurrentTweenTick();
+            return true;
+        }
+
+        private void ExitLinanSwing()
+        {
+            if (_state != PetState.SkinExclusive
+                || !_linanSwingActive
+                || _linanSwingExiting
+                || _linanSwingExitRequested)
+            {
+                return;
+            }
+
+            _linanSwingExitRequested = true;
+            _movingToTarget = false;
+            _pendingDoubleClickWave = false;
+            _lookIndex = -1;
+        }
+
+        private void ResetLinanSwingState()
+        {
+            _linanSwingActive = false;
+            _linanSwingHolding = false;
+            _linanSwingExiting = false;
+            _linanSwingExitRequested = false;
         }
 
         private bool AdvanceSittingAnimation()

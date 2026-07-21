@@ -40,6 +40,8 @@ $skinPacker = Join-Path $project 'pack_external_skin.py'
 $motionRoot = Join-Path $skinWork 'motion'
 $motionReport = Join-Path $skinQa 'motion-build-report.json'
 $motionContact = Join-Path $skinQa 'motion-ghost-free-contact.png'
+$isLinanSwingSkin = $SkinId.Equals('linan-princess', [StringComparison]::OrdinalIgnoreCase)
+$frameActionProfile = if ($isLinanSwingSkin) { 'external-v306-linan' } else { 'external-v306' }
 
 foreach ($required in @($python, $frameBuilder, $motionBuilder, $skinPacker, $decoded)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required path not found: $required" }
@@ -52,7 +54,7 @@ New-Item -ItemType Directory -Force -Path $skinWork, $skinQa, $skinOutput | Out-
   --decoded-dir $decoded `
   --external-skin `
   --legacy-from-walk `
-  --action-profile external-v304 `
+  --action-profile $frameActionProfile `
   --skill-dir $skill `
   --output-dir $skinWork `
   --archive $temporaryArchive `
@@ -61,23 +63,31 @@ New-Item -ItemType Directory -Force -Path $skinWork, $skinQa, $skinOutput | Out-
 
 if ($LASTEXITCODE -ne 0) { throw "Skin frame recovery failed with exit code $LASTEXITCODE" }
 
-& $python $motionBuilder `
-  --frames-root (Join-Path $skinWork 'frames') `
-  --motion-root $motionRoot `
-  --report $motionReport `
-  --qa-contact $motionContact
+$motionArguments = @(
+  $motionBuilder,
+  '--frames-root', (Join-Path $skinWork 'frames'),
+  '--motion-root', $motionRoot,
+  '--report', $motionReport,
+  '--qa-contact', $motionContact
+)
+if ($isLinanSwingSkin) { $motionArguments += '--include-linan-swing-exit' }
+& $python @motionArguments
 
 if ($LASTEXITCODE -ne 0) { throw "Skin motion mesh build failed with exit code $LASTEXITCODE" }
 
-& $python $skinPacker `
-  --frames-root (Join-Path $skinWork 'frames') `
-  --motion-root $motionRoot `
-  --output-root $skinOutput `
-  --id $SkinId `
-  --name $SkinName `
-  --developer $Developer `
-  --exclusive-action $ExclusiveAction `
-  --report $packReport
+$packArguments = @(
+  $skinPacker,
+  '--frames-root', (Join-Path $skinWork 'frames'),
+  '--motion-root', $motionRoot,
+  '--output-root', $skinOutput,
+  '--id', $SkinId,
+  '--name', $SkinName,
+  '--developer', $Developer,
+  '--exclusive-action', $ExclusiveAction,
+  '--report', $packReport
+)
+if ($isLinanSwingSkin) { $packArguments += '--include-linan-swing-exit' }
+& $python @packArguments
 
 if ($LASTEXITCODE -ne 0) { throw "Skin packaging failed with exit code $LASTEXITCODE" }
 

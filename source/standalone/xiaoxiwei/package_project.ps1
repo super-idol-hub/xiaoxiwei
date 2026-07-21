@@ -63,6 +63,13 @@ $previousV304NamedAsPet = Join-Path $release '小曦薇桌宠-v3.0.4-增强版.e
 if (Test-Path -LiteralPath $previousV304NamedAsPet -PathType Leaf) {
     Copy-Item -LiteralPath $previousV304NamedAsPet -Destination (Join-Path $history '小曦薇桌宠-v3.0.4-增强版.exe') -Force
 }
+$currentLatest = Join-Path $release '小曦薇.exe'
+if (Test-Path -LiteralPath $currentLatest -PathType Leaf) {
+    $currentLatestVersion = (Get-Item -LiteralPath $currentLatest).VersionInfo.FileVersion
+    if ($currentLatestVersion -and $currentLatestVersion.StartsWith('3.0.5', [StringComparison]::OrdinalIgnoreCase)) {
+        Copy-Item -LiteralPath $currentLatest -Destination (Join-Path $history '小曦薇桌宠-v3.0.5-增强版.exe') -Force
+    }
+}
 Reset-ProjectDirectory $release
 Reset-ProjectDirectory $source
 Reset-ProjectDirectory $qa
@@ -115,7 +122,8 @@ $materialNames = @(
     'codex-clipboard-01722016-8e36-4071-8efd-805391df90e1.png',
     'codex-clipboard-8f716835-36e2-49e1-8544-6e15f218c344.png',
     'codex-clipboard-eefe3ec7-ae45-4615-95e4-93e0e9837a60.png',
-    'codex-clipboard-f24d16c9-af96-4672-a637-2eff55289332.png'
+    'codex-clipboard-f24d16c9-af96-4672-a637-2eff55289332.png',
+    'codex-clipboard-ef11ac6d-629b-48e8-9114-6a08f2fb930f.png'
 )
 $materialSource = Join-Path $env:LOCALAPPDATA 'Temp'
 $materialTarget = Join-Path $source 'user-materials'
@@ -164,7 +172,8 @@ $historicalRelativePaths = @(
     'releases\历史版本\小曦薇桌宠-v3.0.1-增强版.exe',
     'releases\历史版本\小曦薇桌宠-v3.0.2-增强版.exe',
     'releases\历史版本\小曦薇桌宠-v3.0.3-增强版.exe',
-    'releases\历史版本\小曦薇桌宠-v3.0.4-增强版.exe'
+    'releases\历史版本\小曦薇桌宠-v3.0.4-增强版.exe',
+    'releases\历史版本\小曦薇桌宠-v3.0.5-增强版.exe'
 )
 $historicalExecutables = foreach ($relativePath in $historicalRelativePaths) {
     $historicalPath = Join-Path $project $relativePath

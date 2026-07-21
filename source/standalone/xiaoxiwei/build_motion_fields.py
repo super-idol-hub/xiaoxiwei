@@ -53,6 +53,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--qa-contact", required=True, type=Path)
     parser.add_argument("--archive", type=Path)
+    parser.add_argument(
+        "--include-linan-swing-exit",
+        action="store_true",
+        help=(
+            "Add the non-adjacent r15/c05 -> r15/c02 loop-wrap mesh and "
+            "r15/c02 -> r15/c06 click-exit mesh used by the persistent "
+            "Lin'an swing."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -67,7 +76,9 @@ def motion_name(source: tuple[int, int], target: tuple[int, int]) -> str:
     )
 
 
-def expected_pairs() -> list[tuple[tuple[int, int], tuple[int, int]]]:
+def expected_pairs(
+    include_linan_swing_exit: bool = False,
+) -> list[tuple[tuple[int, int], tuple[int, int]]]:
     pairs: set[tuple[tuple[int, int], tuple[int, int]]] = set()
     for row, count in enumerate(ROW_COUNTS):
         if row in DIRECT_GAZE_ROWS:
@@ -76,6 +87,9 @@ def expected_pairs() -> list[tuple[tuple[int, int], tuple[int, int]]]:
             pairs.add(((row, column), (row, (column + 1) % count)))
             if row != 0:
                 pairs.add(((row, column), (0, 0)))
+    if include_linan_swing_exit:
+        pairs.add(((15, 5), (15, 2)))
+        pairs.add(((15, 2), (15, 6)))
     return sorted(pairs)
 
 
@@ -242,7 +256,7 @@ def main() -> int:
             cache[key] = load_logical(path)
         return cache[key]
 
-    for source_key, target_key in expected_pairs():
+    for source_key, target_key in expected_pairs(args.include_linan_swing_exit):
         source = frame(source_key)
         target = frame(target_key)
         forward_dense = dense_flow(source, target)
@@ -282,6 +296,8 @@ def main() -> int:
         "gridSize": list(GRID_SIZE),
         "quantization": QUANTIZATION,
         "pairCount": len(records),
+        "linanSwingLoopWrapMesh": args.include_linan_swing_exit,
+        "linanSwingExitMesh": args.include_linan_swing_exit,
         "singleSilhouette": True,
         "crossFade": False,
     }
