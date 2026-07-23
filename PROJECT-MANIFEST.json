@@ -1,7 +1,7 @@
 {
     "schemaVersion":  1,
     "packagedAt":  "2026-07-21T09:54:55.3299199+08:00",
-    "developer":  "Anbunengsi",
+    "developer":  "Anbunensi",
     "executable":  {
                        "path":  "releases\\最新版\\小曦薇.exe",
                        "bytes":  31913984,
@@ -18,42 +18,42 @@
               ],
     "historicalExecutables":  [
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v1.0-标准版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v1.0-标准版.exe",
                                       "bytes":  1470464,
                                       "sha256":  "09c451449a8221189ffb73bcf4063ae483752df38cd1f74fe77dfc2bbe38277b"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v2.0-4K版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v2.0-4K版.exe",
                                       "bytes":  14038016,
                                       "sha256":  "b06495227af7ac335d72bdd7ff7f3b456dbae66804850613ad542419e4283636"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v3.0-增强版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v3.0-增强版.exe",
                                       "bytes":  30875136,
                                       "sha256":  "04ed86308f3d6bbaa7bdf300b5b536c70aa44dd9c26cacc3f78dd40c345ca3da"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v3.0.1-增强版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v3.0.1-增强版.exe",
                                       "bytes":  31991808,
                                       "sha256":  "558968099d3fcb7eefd557f2e7e7f4e822bbe2d1260662892e1a0334330e1a9c"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v3.0.2-增强版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v3.0.2-增强版.exe",
                                       "bytes":  31993344,
                                       "sha256":  "9a54b314cf5af0720bd9c9494d2dddc6fd38090d9979ae7bf2c410ae116e091d"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v3.0.3-增强版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v3.0.3-增强版.exe",
                                       "bytes":  31995392,
                                       "sha256":  "24804571608b148a0dc2e153cb58d64ec3e9d10a4dc856933628e7fcdf32a5ac"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v3.0.4-增强版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v3.0.4-增强版.exe",
                                       "bytes":  31949824,
                                       "sha256":  "7696025de7c5eb3ac940fbb9a3253e2cb29b4b10e89675a8c48c0cba18a1878b"
                                   },
                                   {
-                                      "path":  "releases\\历史版本\\小曦薇桌宠-v3.0.5-增强版.exe",
+                                      "path":  "releases\\历史版本\\小曦薇-Windows互动角色-v3.0.5-增强版.exe",
                                       "bytes":  31909888,
                                       "sha256":  "41369559ab6b02e420139855726fefbcb8579fb0932eb36475e634b98b03ce78"
                                   }

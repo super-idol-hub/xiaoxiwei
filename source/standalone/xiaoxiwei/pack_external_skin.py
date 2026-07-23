@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--id", required=True)
     parser.add_argument("--name", required=True)
-    parser.add_argument("--developer", default="Anbunengsi")
+    parser.add_argument("--developer", default="Anbunensi")
     parser.add_argument(
         "--exclusive-action",
         default="",

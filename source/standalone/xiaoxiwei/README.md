@@ -1,6 +1,6 @@
 # 小曦薇
 
-开发者：Anbunengsi
+开发者：Anbunensi
 
 The standalone build recovers 4× frames directly from the approved high-resolution source strips. It embeds 176 authored PNG keyframes plus compact bidirectional motion meshes in a ZIP resource and decodes/scales them through a bounded LRU cache. Runtime interpolation warps exactly one opaque pose at a time, presenting every complete animated cycle with at least 24 display stages while preserving the v3.0.1 cadence, without whole-frame cross-fades or duplicate silhouettes.
 
@@ -25,4 +25,4 @@ Build an external skin with `build_skin.ps1`. The generated folder contains a UT
 
 ## 免责声明
 
-本程序由个人独立开发，仅供田曦薇粉丝个人欣赏、交流与非商业使用，纯属为爱发电。人物姓名、肖像、形象及相关素材的权利归田曦薇本人及相应权利方所有。本程序为非官方作品，与田曦薇本人、工作室、经纪机构及品牌方无官方关联，也不代表已获得其授权。禁止售卖、收费分发、广告引流、商业推广、二次商用、冒用官方名义，或用于侵犯肖像权、名誉权及其他合法权益。若权利方认为内容不妥，请停止传播并联系开发者处理。
+本程序由 Anbunensi 独立、非商业开发，仅供田曦薇粉丝个人欣赏、交流与非商业使用，纯属为爱发电。人物姓名、肖像、形象及相关素材的权利归田曦薇本人及相应权利方所有。本程序为非官方作品，与田曦薇本人、工作室、经纪机构及品牌方无官方关联，也不代表已获得其授权。禁止售卖、收费分发、广告引流、商业推广、二次商用、冒用官方名义，或用于侵犯肖像权、名誉权及其他合法权益。若权利方认为内容不妥，请停止传播并联系开发者处理。

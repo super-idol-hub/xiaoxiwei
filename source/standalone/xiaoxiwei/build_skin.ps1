@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$SkinName,
     [Parameter(Mandatory = $true)][string]$DecodedDir,
     [Parameter(Mandatory = $true)][string]$ExclusiveAction,
-    [string]$Developer = 'Anbunengsi',
+    [string]$Developer = 'Anbunensi',
     [string]$PythonPath = '',
     [string]$SkillDirectory = ''
 )
