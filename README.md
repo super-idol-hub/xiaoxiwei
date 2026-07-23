@@ -9,6 +9,14 @@
 项目永久免费、非官方、非商业。参考照片、节目音视频、网页原图和用户私有素材
 不会打包进程序，也不会提交到源码仓库。
 
+## 预览
+
+| vivo 白裙 | 临安公主 | 黄橙子 |
+| --- | --- | --- |
+| ![vivo 白裙](docs/images/xiaoxiwei-white-dress.png) | ![临安公主](docs/images/xiaoxiwei-linan-princess.png) | ![黄橙子](docs/images/xiaoxiwei-huang-chengzi.png) |
+
+预览图取自 v3.0.6 实际发行程序内置的角色关键帧。
+
 ## 当前功能
 
 - 写实全身 4K 源素材，运行时可自由缩放。
@@ -42,6 +50,10 @@
 ## 微博提醒说明
 
 免费提醒使用新浪公开媒体页作为低频、尽力而为的数据来源，不需要微博账号或 Cookie。该页面可能延迟、改版或停止提供内容，因此提醒不承诺实时性与长期可用性。程序只在本地保存提醒开关和最后见到的动态 ID，不保存完整时间线。
+
+## 技术基础
+
+项目遵循 [偶像 Windows 互动角色开发规范](https://github.com/super-idol-hub/idol-windows-character-guides)，统一采用其中的产品命名、动作与皮肤契约、交互行为、质量验证、版权边界和发布要求。
 
 ## 免责声明
 
