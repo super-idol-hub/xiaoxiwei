@@ -156,6 +156,7 @@ function SetupDialog({ initial, onClose, onSaved }) {
   const [deviceName, setDeviceName] = useState(initial?.deviceName || "我的小曦薇");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showConfig, setShowConfig] = useState(false);
 
   const configure = async (event) => {
     event.preventDefault();
@@ -249,23 +250,27 @@ function SetupDialog({ initial, onClose, onSaved }) {
             <button
               className="secondary-button setup-button"
               type="button"
-              onClick={() =>
-                navigator.clipboard.writeText(
-                  `${JSON.stringify(
-                    configPayload({
-                      ...initial,
-                      supabaseUrl: normalizeProjectUrl(supabaseUrl),
-                      supabaseKey: supabaseKey.trim(),
-                      deviceName: deviceName.trim() || initial.deviceName,
-                    }),
-                    null,
-                    2,
-                  )}\n`,
-                )
-              }
+              onClick={() => setShowConfig((visible) => !visible)}
             >
-              复制配置 JSON
+              {showConfig ? "隐藏配置 JSON" : "显示配置 JSON"}
             </button>
+          )}
+          {initial && showConfig && (
+            <textarea
+              aria-label="配置 JSON"
+              readOnly
+              rows={8}
+              value={`${JSON.stringify(
+                configPayload({
+                  ...initial,
+                  supabaseUrl: normalizeProjectUrl(supabaseUrl),
+                  supabaseKey: supabaseKey.trim(),
+                  deviceName: deviceName.trim() || initial.deviceName,
+                }),
+                null,
+                2,
+              )}\n`}
+            />
           )}
           <p className="privacy-note">
             请把下载的 <code>xiaoxiwei-remote.json</code> 放到新 EXE 同一目录。设备密钥不会上传到 GitHub。
