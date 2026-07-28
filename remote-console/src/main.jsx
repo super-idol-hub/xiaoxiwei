@@ -119,8 +119,8 @@ function Icon({ name, size = 20 }) {
   );
 }
 
-function saveFile(remote) {
-  const payload = {
+function configPayload(remote) {
+  return {
     schemaVersion: 1,
     supabaseUrl: remote.supabaseUrl,
     supabaseKey: remote.supabaseKey,
@@ -128,6 +128,10 @@ function saveFile(remote) {
     deviceSecret: remote.deviceSecret,
     deviceName: remote.deviceName,
   };
+}
+
+function saveFile(remote) {
+  const payload = configPayload(remote);
   const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
     type: "application/json;charset=utf-8",
   });
@@ -241,6 +245,28 @@ function SetupDialog({ initial, onClose, onSaved }) {
             <Icon name="download" />
             {busy ? "正在连接…" : initial ? "保存并重新下载配置" : "连接并下载配置"}
           </button>
+          {initial && (
+            <button
+              className="secondary-button setup-button"
+              type="button"
+              onClick={() =>
+                navigator.clipboard.writeText(
+                  `${JSON.stringify(
+                    configPayload({
+                      ...initial,
+                      supabaseUrl: normalizeProjectUrl(supabaseUrl),
+                      supabaseKey: supabaseKey.trim(),
+                      deviceName: deviceName.trim() || initial.deviceName,
+                    }),
+                    null,
+                    2,
+                  )}\n`,
+                )
+              }
+            >
+              复制配置 JSON
+            </button>
+          )}
           <p className="privacy-note">
             请把下载的 <code>xiaoxiwei-remote.json</code> 放到新 EXE 同一目录。设备密钥不会上传到 GitHub。
           </p>
