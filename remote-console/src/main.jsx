@@ -408,10 +408,7 @@ function App() {
         <section className="control-layout" aria-label="消息控制">
           <aside className="pet-preview" aria-hidden="true">
             <div className="pet-orbit" />
-            <div className="pet-avatar">
-              <span className="pet-hair">小</span>
-              <span className="pet-face">◡</span>
-            </div>
+            <img className="pet-model" src="./xiwei-idle.png" alt="" />
             <div className="preview-bubble">今天也要开心呀</div>
           </aside>
 

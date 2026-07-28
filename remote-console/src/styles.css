@@ -97,19 +97,21 @@ button:disabled {
 }
 
 main {
+  --preview-width: 280px;
+  --layout-gap: clamp(30px, 5vw, 72px);
   width: min(1080px, calc(100% - 44px));
   margin: 48px auto 70px;
 }
 
 .control-layout {
   display: grid;
-  grid-template-columns: minmax(210px, 0.72fr) minmax(520px, 1.6fr);
+  grid-template-columns: var(--preview-width) minmax(520px, 1fr);
   align-items: center;
-  gap: clamp(26px, 5vw, 72px);
+  gap: var(--layout-gap);
 }
 
 .pet-preview {
-  min-height: 360px;
+  min-height: 430px;
   position: relative;
   display: grid;
   place-items: center;
@@ -117,50 +119,28 @@ main {
 
 .pet-orbit {
   position: absolute;
-  width: 280px;
-  height: 280px;
+  width: 300px;
+  height: 300px;
   border-radius: 50%;
   border: 1px dashed rgba(242, 85, 112, 0.2);
 }
 
-.pet-avatar {
-  width: 126px;
-  height: 148px;
+.pet-model {
+  width: 226px;
+  height: auto;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #514452;
-  background: linear-gradient(155deg, #f9e9ef 2%, #eadce9 48%, #ccbfd3 100%);
-  border: 8px solid rgba(255, 255, 255, 0.88);
-  border-radius: 54% 46% 42% 46% / 43% 43% 55% 57%;
-  box-shadow: 0 20px 45px rgba(91, 68, 91, 0.16);
-  transform: translate(-22px, 10px) rotate(-2deg);
-}
-
-.pet-hair {
-  position: absolute;
-  top: 22px;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.pet-face {
-  margin-top: 44px;
-  width: 57px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 48%;
-  color: #e65c76;
-  background: #fff8fa;
-  font-size: 23px;
+  z-index: 1;
+  display: block;
+  transform: translate(-15px, 4px);
+  filter: drop-shadow(0 22px 24px rgba(58, 45, 54, 0.13));
+  animation: pet-float 4.8s ease-in-out infinite;
 }
 
 .preview-bubble {
   position: absolute;
-  top: 78px;
-  left: 54%;
+  z-index: 2;
+  top: 74px;
+  left: 57%;
   white-space: nowrap;
   padding: 15px 18px;
   color: #424958;
@@ -332,9 +312,15 @@ textarea:focus {
 }
 
 .history-section {
-  width: min(800px, 100%);
+  width: calc(100% - var(--preview-width) - var(--layout-gap));
   margin: 30px 0 0 auto;
   padding: 25px 27px;
+}
+
+@keyframes pet-float {
+  0%,
+  100% { transform: translate(-15px, 4px); }
+  50% { transform: translate(-15px, -2px); }
 }
 
 .section-heading {
@@ -614,6 +600,7 @@ code {
   }
 
   .history-section {
+    width: 100%;
     margin-top: 18px;
   }
 }
