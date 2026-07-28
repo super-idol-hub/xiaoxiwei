@@ -1,10 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { createClient } from "@supabase/supabase-js";
 import "./styles.css";
 
-const STORAGE_KEY = "xiaoxiwei.remote.v1";
 const HISTORY_KEY = "xiaoxiwei.remote.history.v1";
+const LEGACY_REMOTE_KEY = "xiaoxiwei.remote.v1";
 const MAX_MESSAGE_LENGTH = 300;
+const runtime = window.XIAOXIWEI_CONFIG || {};
+const accountName = runtime.accountName || "xiaoxiwei";
+
+localStorage.removeItem(LEGACY_REMOTE_KEY);
+
+const supabase = createClient(runtime.supabaseUrl, runtime.supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
 
 function safeJsonParse(value, fallback) {
   try {
@@ -14,60 +27,23 @@ function safeJsonParse(value, fallback) {
   }
 }
 
-function loadRemote() {
-  return safeJsonParse(localStorage.getItem(STORAGE_KEY), null);
-}
-
 function loadHistory() {
   const value = safeJsonParse(localStorage.getItem(HISTORY_KEY), []);
   return Array.isArray(value) ? value.slice(0, 8) : [];
 }
 
-function bytesToBase64Url(bytes) {
-  let binary = "";
-  bytes.forEach((value) => {
-    binary += String.fromCharCode(value);
-  });
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function makeSecret() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return bytesToBase64Url(bytes);
-}
-
-function normalizeProjectUrl(value) {
-  return value.trim().replace(/\/+$/, "");
-}
-
-async function rpc(remote, functionName, body) {
-  const response = await fetch(
-    `${normalizeProjectUrl(remote.supabaseUrl)}/rest/v1/rpc/${functionName}`,
-    {
-      method: "POST",
-      headers: {
-        apikey: remote.supabaseKey,
-        Authorization: `Bearer ${remote.supabaseKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-
-  const text = await response.text();
-  if (!response.ok) {
-    let detail = text;
-    try {
-      const parsed = JSON.parse(text);
-      detail = parsed.message || parsed.hint || text;
-    } catch {
-      // Keep the response text.
+async function rpc(functionName, body = {}) {
+  const { data, error } = await supabase.rpc(functionName, body);
+  if (error) {
+    if (/jwt|session|login|authenticated/i.test(error.message)) {
+      throw new Error("登录已过期，请重新登录。");
     }
-    throw new Error(detail || `请求失败（${response.status}）`);
+    if (/access denied|not bound/i.test(error.message)) {
+      throw new Error("这个账号没有绑定小曦薇。");
+    }
+    throw new Error(error.message || "请求失败，请稍后重试。");
   }
-  if (!text) return null;
-  return JSON.parse(text);
+  return data;
 }
 
 function Icon({ name, size = 20 }) {
@@ -78,10 +54,22 @@ function Icon({ name, size = 20 }) {
         <path d="M22 2 11 13" />
       </>
     ),
-    settings: (
+    user: (
       <>
-        <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08a1.7 1.7 0 0 0-1.03-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.05A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 10 3.02V3h4v.02a1.7 1.7 0 0 0 1.03 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 7l-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.95 10H21v4h-.05A1.7 1.7 0 0 0 19.4 15Z" />
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+      </>
+    ),
+    lock: (
+      <>
+        <rect x="4" y="10" width="16" height="11" rx="3" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M10 17l5-5-5-5M15 12H3" />
+        <path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" />
       </>
     ),
     check: <path d="m5 12 4 4L19 6" />,
@@ -92,13 +80,6 @@ function Icon({ name, size = 20 }) {
       </>
     ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
-    download: (
-      <>
-        <path d="M12 3v12" />
-        <path d="m7 10 5 5 5-5" />
-        <path d="M5 21h14" />
-      </>
-    ),
   };
 
   return (
@@ -119,164 +100,109 @@ function Icon({ name, size = 20 }) {
   );
 }
 
-function configPayload(remote) {
-  return {
-    schemaVersion: 1,
-    supabaseUrl: remote.supabaseUrl,
-    supabaseKey: remote.supabaseKey,
-    deviceId: remote.deviceId,
-    deviceSecret: remote.deviceSecret,
-    deviceName: remote.deviceName,
-  };
-}
-
-function saveFile(remote) {
-  const payload = configPayload(remote);
-  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
-    type: "application/json;charset=utf-8",
-  });
-  const href = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = href;
-  link.download = "xiaoxiwei-remote.json";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(href);
-}
-
-function SetupDialog({ initial, onClose, onSaved }) {
-  const runtime = window.XIAOXIWEI_CONFIG || {};
-  const [supabaseUrl, setSupabaseUrl] = useState(
-    initial?.supabaseUrl || runtime.supabaseUrl || "",
-  );
-  const [supabaseKey, setSupabaseKey] = useState(
-    initial?.supabaseKey || runtime.supabaseKey || "",
-  );
-  const [deviceName, setDeviceName] = useState(initial?.deviceName || "我的小曦薇");
+function LoginScreen() {
+  const [account, setAccount] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const configure = async (event) => {
+  const signIn = async (event) => {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
-      if (!supabaseUrl.trim() || !supabaseKey.trim()) {
-        throw new Error("请填写 Supabase Project URL 和公开密钥。");
+      if (account.trim().toLowerCase() !== accountName.toLowerCase()) {
+        throw new Error("账号或密码不正确。");
       }
-      const remote = initial?.deviceId
-        ? {
-            ...initial,
-            supabaseUrl: normalizeProjectUrl(supabaseUrl),
-            supabaseKey: supabaseKey.trim(),
-            deviceName: deviceName.trim() || "我的小曦薇",
-          }
-        : {
-            supabaseUrl: normalizeProjectUrl(supabaseUrl),
-            supabaseKey: supabaseKey.trim(),
-            deviceId: crypto.randomUUID(),
-            deviceSecret: makeSecret(),
-            deviceName: deviceName.trim() || "我的小曦薇",
-          };
-
-      await rpc(remote, "register_pet_device", {
-        p_device_id: remote.deviceId,
-        p_name: remote.deviceName,
-        p_secret: remote.deviceSecret,
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: runtime.loginEmail,
+        password,
       });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
-      saveFile(remote);
-      onSaved(remote);
+      if (signInError) throw new Error("账号或密码不正确。");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "配置失败，请稍后再试。");
+      setError(reason instanceof Error ? reason.message : "登录失败，请稍后重试。");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="setup-title">
-        <button className="icon-button dialog-close" onClick={onClose} aria-label="关闭设置">
-          <Icon name="close" />
-        </button>
-        <div className="dialog-heading">
-          <div className="setup-mark"><Icon name="message" size={25} /></div>
-          <div>
-            <h2 id="setup-title">{initial ? "连接设置" : "连接你的小曦薇"}</h2>
-            <p>首次配置会生成专属设备密钥，并下载给桌宠使用的配置文件。</p>
-          </div>
+    <div className="login-shell">
+      <section className="login-card" aria-labelledby="login-title">
+        <div className="login-character" aria-hidden="true">
+          <div className="login-orbit" />
+          <img src="./xiwei-idle.png" alt="" />
         </div>
-        <form onSubmit={configure}>
-          <label>
-            <span>Supabase Project URL</span>
-            <input
-              type="url"
-              value={supabaseUrl}
-              onChange={(event) => setSupabaseUrl(event.target.value)}
-              placeholder="https://xxxx.supabase.co"
-              autoComplete="url"
-              required
-            />
-          </label>
-          <label>
-            <span>Supabase 公开密钥</span>
-            <input
-              type="password"
-              value={supabaseKey}
-              onChange={(event) => setSupabaseKey(event.target.value)}
-              placeholder="sb_publishable_… 或 anon key"
-              autoComplete="off"
-              required
-            />
-          </label>
-          <label>
-            <span>设备名称</span>
-            <input
-              value={deviceName}
-              onChange={(event) => setDeviceName(event.target.value)}
-              maxLength={40}
-              placeholder="我的小曦薇"
-            />
-          </label>
-          {error && <p className="form-error">{error}</p>}
-          <button className="primary-button setup-button" disabled={busy} type="submit">
-            <Icon name="download" />
-            {busy ? "正在连接…" : initial ? "保存并重新下载配置" : "连接并下载配置"}
-          </button>
-          {initial && (
+        <div className="login-content">
+          <div className="login-mark"><Icon name="lock" size={24} /></div>
+          <p className="login-brand">小曦薇 · 遥控台</p>
+          <h1 id="login-title">欢迎回来</h1>
+          <p className="login-copy">登录后才能给小曦薇发送消息。</p>
+          <form onSubmit={signIn}>
             <label>
-              <span>配置 JSON（请勿分享）</span>
-              <textarea
-                aria-label="配置 JSON"
-                readOnly
-                rows={8}
-                value={`${JSON.stringify(
-                  configPayload({
-                    ...initial,
-                    supabaseUrl: normalizeProjectUrl(supabaseUrl),
-                    supabaseKey: supabaseKey.trim(),
-                    deviceName: deviceName.trim() || initial.deviceName,
-                  }),
-                  null,
-                  2,
-                )}\n`}
+              <span>账号</span>
+              <input
+                value={account}
+                onChange={(event) => setAccount(event.target.value)}
+                autoComplete="username"
+                placeholder="请输入账号"
+                required
               />
             </label>
-          )}
-          <p className="privacy-note">
-            请把下载的 <code>xiaoxiwei-remote.json</code> 放到新 EXE 同一目录。设备密钥不会上传到 GitHub。
-          </p>
-        </form>
+            <label>
+              <span>密码</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="请输入密码"
+                required
+              />
+            </label>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="primary-button login-button" disabled={busy} type="submit">
+              <Icon name="lock" size={18} />
+              {busy ? "正在登录…" : "登录遥控台"}
+            </button>
+          </form>
+          <p className="login-note">账号登录不绑定当前电脑，手机或新设备也可以使用。</p>
+        </div>
       </section>
     </div>
   );
 }
 
-function App() {
-  const [remote, setRemote] = useState(loadRemote);
-  const [settingsOpen, setSettingsOpen] = useState(!loadRemote());
+function AccountDialog({ onClose, onSignOut }) {
+  return (
+    <div className="dialog-backdrop" role="presentation">
+      <section className="dialog account-dialog" role="dialog" aria-modal="true" aria-labelledby="account-title">
+        <button className="icon-button dialog-close" onClick={onClose} aria-label="关闭账户设置">
+          <Icon name="close" />
+        </button>
+        <div className="dialog-heading">
+          <div className="setup-mark"><Icon name="user" size={25} /></div>
+          <div>
+            <h2 id="account-title">账户设置</h2>
+            <p>当前账号已安全连接到专属小曦薇。</p>
+          </div>
+        </div>
+        <div className="account-row">
+          <span>当前账号</span>
+          <strong>{accountName}</strong>
+        </div>
+        <button className="secondary-button signout-button" onClick={onSignOut}>
+          <Icon name="logout" size={18} />
+          退出登录
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function ConsoleApp() {
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [deviceName, setDeviceName] = useState("我的小曦薇");
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState(loadHistory);
   const [connection, setConnection] = useState({ state: "checking", lastSeen: null });
@@ -291,13 +217,10 @@ function App() {
   }, []);
 
   const checkStatus = useCallback(async () => {
-    if (!remote) return;
     try {
-      const result = await rpc(remote, "get_pet_status", {
-        p_device_id: remote.deviceId,
-        p_secret: remote.deviceSecret,
-      });
+      const result = await rpc("get_my_pet_status");
       const status = Array.isArray(result) ? result[0] : result;
+      setDeviceName(status?.device_name || "我的小曦薇");
       setConnection({
         state: status?.is_online ? "online" : "offline",
         lastSeen: status?.last_seen_at || null,
@@ -305,7 +228,7 @@ function App() {
     } catch {
       setConnection((current) => ({ ...current, state: "error" }));
     }
-  }, [remote]);
+  }, []);
 
   useEffect(() => {
     checkStatus();
@@ -328,7 +251,7 @@ function App() {
 
   const send = async (content = message) => {
     const value = content.trim();
-    if (!remote || !value || sending) return;
+    if (!value || sending) return;
     setSending(true);
     setNotice("");
     const clientMessageId = crypto.randomUUID();
@@ -341,27 +264,19 @@ function App() {
     persistHistory([optimistic, ...history.filter((item) => item.id !== clientMessageId)]);
 
     try {
-      const response = await rpc(remote, "send_pet_message", {
-        p_device_id: remote.deviceId,
-        p_secret: remote.deviceSecret,
+      const response = await rpc("send_my_pet_message", {
         p_content: value,
         p_client_message_id: clientMessageId,
       });
       const messageId = typeof response === "number" ? response : response?.message_id ?? response;
-      const delivered = {
-        ...optimistic,
-        serverId: messageId,
-        status: "sent",
-      };
-      persistHistory([delivered, ...history.filter((item) => item.id !== clientMessageId)]);
+      const sent = { ...optimistic, serverId: messageId, status: "sent" };
+      persistHistory([sent, ...history.filter((item) => item.id !== clientMessageId)]);
       setMessage("");
       setNotice("消息已送出");
       textareaRef.current?.focus();
       window.setTimeout(async () => {
         try {
-          const statusResult = await rpc(remote, "get_pet_message_status", {
-            p_device_id: remote.deviceId,
-            p_secret: remote.deviceSecret,
+          const statusResult = await rpc("get_my_pet_message_status", {
             p_message_id: Number(messageId),
           });
           if (statusResult === "delivered") {
@@ -372,7 +287,7 @@ function App() {
             setNotice("小曦薇已收到");
           }
         } catch {
-          // A delivery receipt is helpful but does not change a successful send.
+          // Delivery status is helpful but does not change a successful send.
         }
       }, 2800);
     } catch (reason) {
@@ -384,11 +299,10 @@ function App() {
     }
   };
 
-  const onSaved = (next) => {
-    setRemote(next);
-    setSettingsOpen(false);
-    setConnection({ state: "checking", lastSeen: null });
-    setNotice("连接配置已保存");
+  const signOut = async () => {
+    setAccountOpen(false);
+    persistHistory([]);
+    await supabase.auth.signOut();
   };
 
   return (
@@ -398,9 +312,9 @@ function App() {
           <span className="brand-mark" aria-hidden="true">曦</span>
           <span>小曦薇 <i>·</i> 遥控台</span>
         </div>
-        <button className="settings-button" onClick={() => setSettingsOpen(true)}>
-          <Icon name="settings" size={18} />
-          设置
+        <button className="settings-button" onClick={() => setAccountOpen(true)}>
+          <Icon name="user" size={18} />
+          账户
         </button>
       </header>
 
@@ -417,7 +331,7 @@ function App() {
               <span className="presence-dot" />
               <span>{statusCopy}</span>
             </div>
-            <h1>{remote?.deviceName || "我的小曦薇"}</h1>
+            <h1>{deviceName}</h1>
             <div className="composer">
               <textarea
                 ref={textareaRef}
@@ -436,7 +350,7 @@ function App() {
               <button
                 className="primary-button"
                 onClick={() => send()}
-                disabled={!message.trim() || sending || !remote}
+                disabled={!message.trim() || sending}
               >
                 <Icon name="send" />
                 {sending ? "正在发送…" : "发送给小曦薇"}
@@ -489,26 +403,43 @@ function App() {
       </main>
 
       <footer>
-        <button className="footer-settings" onClick={() => setSettingsOpen(true)}>
-          <Icon name="settings" size={16} />
-          设置
+        <button className="footer-settings" onClick={() => setAccountOpen(true)}>
+          <Icon name="user" size={16} />
+          账户
         </button>
       </footer>
 
       {notice && <div className="toast" role="status">{notice}</div>}
-      {settingsOpen && (
-        <SetupDialog
-          initial={remote}
-          onClose={() => setSettingsOpen(false)}
-          onSaved={onSaved}
-        />
-      )}
+      {accountOpen && <AccountDialog onClose={() => setAccountOpen(false)} onSignOut={signOut} />}
     </div>
   );
 }
 
+function Root() {
+  const [session, setSession] = useState(undefined);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  if (session === undefined) {
+    return (
+      <div className="auth-loading" role="status">
+        <span className="brand-mark" aria-hidden="true">曦</span>
+        正在安全连接…
+      </div>
+    );
+  }
+
+  return session ? <ConsoleApp /> : <LoginScreen />;
+}
+
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <Root />
   </React.StrictMode>,
 );
