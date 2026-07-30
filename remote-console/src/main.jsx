@@ -342,7 +342,14 @@ function SupportDialog({
                     value={reply}
                     onChange={(event) => onReplyChange(event.target.value.slice(0, 1200))}
                     onKeyDown={(event) => {
-                      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") onSend();
+                      if (
+                        event.key === "Enter"
+                        && !event.shiftKey
+                        && !event.nativeEvent.isComposing
+                      ) {
+                        event.preventDefault();
+                        if (active.status === "open" && reply.trim() && !sending) onSend();
+                      }
                     }}
                     placeholder={active.status === "open" ? "回复朋友…" : "这个会话已经结束"}
                     disabled={active.status !== "open" || sending}

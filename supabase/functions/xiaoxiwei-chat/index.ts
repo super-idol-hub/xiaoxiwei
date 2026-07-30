@@ -124,7 +124,7 @@ const callQwen = async (message: string, history: ChatMessage[]) => {
     Deno.env.get("QWEN_BASE_URL") ||
     "https://dashscope.aliyuncs.com/compatible-mode/v1"
   ).replace(/\/+$/, "");
-  const model = Deno.env.get("QWEN_MODEL") || "qwen-plus";
+  const model = Deno.env.get("QWEN_MODEL") || "qwen3.7-plus";
   const endpoint = baseUrl.endsWith("/chat/completions")
     ? baseUrl
     : `${baseUrl}/chat/completions`;
