@@ -80,6 +80,20 @@ function Icon({ name, size = 20 }) {
       </>
     ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    headset: (
+      <>
+        <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+        <path d="M18 19c0 1.1-.9 2-2 2h-3" />
+        <rect x="3" y="13" width="4" height="6" rx="2" />
+        <rect x="17" y="13" width="4" height="6" rx="2" />
+      </>
+    ),
+    refresh: (
+      <>
+        <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+        <path d="M20 4v7h-7" />
+      </>
+    ),
   };
 
   return (
@@ -200,8 +214,156 @@ function AccountDialog({ onClose, onSignOut }) {
   );
 }
 
+function formatSupportTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function SupportDialog({
+  sessions,
+  activeSessionId,
+  messages,
+  loading,
+  reply,
+  sending,
+  onSelect,
+  onReplyChange,
+  onSend,
+  onRefresh,
+  onCloseSession,
+  onClose,
+}) {
+  const active = sessions.find((item) => item.session_id === activeSessionId);
+  const senderName = {
+    user: "朋友",
+    assistant: "AI 小曦薇",
+    operator: "你",
+    system: "系统",
+  };
+
+  return (
+    <div className="dialog-backdrop" role="presentation">
+      <section className="dialog support-dialog" role="dialog" aria-modal="true" aria-labelledby="support-title">
+        <header className="support-header">
+          <div className="dialog-heading">
+            <div className="setup-mark support-mark"><Icon name="headset" size={25} /></div>
+            <div>
+              <h2 id="support-title">人工会话</h2>
+              <p>只有朋友主动点击“转人工”后，对话才会出现在这里。</p>
+            </div>
+          </div>
+          <div className="support-header-actions">
+            <button className="icon-button support-refresh" onClick={onRefresh} title="刷新">
+              <Icon name="refresh" size={18} />
+            </button>
+            <button className="icon-button" onClick={onClose} aria-label="关闭人工会话">
+              <Icon name="close" />
+            </button>
+          </div>
+        </header>
+
+        <div className="support-layout">
+          <aside className="support-session-list">
+            {sessions.length === 0 ? (
+              <div className="support-empty">
+                <Icon name="headset" size={24} />
+                <span>暂时没有人工请求</span>
+              </div>
+            ) : sessions.map((session) => (
+              <button
+                className={`support-session ${session.session_id === activeSessionId ? "active" : ""}`}
+                key={session.session_id}
+                onClick={() => onSelect(session.session_id)}
+              >
+                <span className={`support-status-dot ${session.status}`} />
+                <span className="support-session-copy">
+                  <strong>{session.status === "open" ? "等待回复" : "已结束会话"}</strong>
+                  <small>{session.last_message || "尚无消息"}</small>
+                </span>
+                <time>{formatSupportTime(session.updated_at)}</time>
+              </button>
+            ))}
+          </aside>
+
+          <div className="support-conversation">
+            {!active ? (
+              <div className="support-empty conversation-empty">
+                <Icon name="message" size={28} />
+                <span>选择一个会话查看聊天内容</span>
+              </div>
+            ) : (
+              <>
+                <div className="support-conversation-meta">
+                  <div>
+                    <strong>{active.status === "open" ? "人工通道已连接" : "会话已结束"}</strong>
+                    <span>{active.message_count || 0} 条消息</span>
+                  </div>
+                  {active.status === "open" && (
+                    <button className="text-button danger-text" onClick={() => onCloseSession(active.session_id)}>
+                      结束会话
+                    </button>
+                  )}
+                </div>
+                <div className="support-message-list">
+                  {loading ? (
+                    <div className="support-empty">正在读取对话…</div>
+                  ) : messages.length === 0 ? (
+                    <div className="support-empty">还没有对话内容</div>
+                  ) : messages.map((message) => (
+                    <article className={`support-message ${message.sender}`} key={message.message_id}>
+                      <div className="support-message-meta">
+                        <strong>{senderName[message.sender] || message.sender}</strong>
+                        <time>{formatSupportTime(message.created_at)}</time>
+                      </div>
+                      <p>{message.content}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="support-reply">
+                  <textarea
+                    value={reply}
+                    onChange={(event) => onReplyChange(event.target.value.slice(0, 1200))}
+                    onKeyDown={(event) => {
+                      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") onSend();
+                    }}
+                    placeholder={active.status === "open" ? "回复朋友…" : "这个会话已经结束"}
+                    disabled={active.status !== "open" || sending}
+                    maxLength={1200}
+                  />
+                  <button
+                    className="primary-button"
+                    onClick={onSend}
+                    disabled={active.status !== "open" || !reply.trim() || sending}
+                  >
+                    <Icon name="send" size={18} />
+                    {sending ? "发送中…" : "发送回复"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ConsoleApp() {
   const [accountOpen, setAccountOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportSessions, setSupportSessions] = useState([]);
+  const [activeSupportId, setActiveSupportId] = useState("");
+  const [supportMessages, setSupportMessages] = useState([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportReply, setSupportReply] = useState("");
+  const [supportSending, setSupportSending] = useState(false);
   const [deviceName, setDeviceName] = useState("我的小曦薇");
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState(loadHistory);
@@ -235,6 +397,49 @@ function ConsoleApp() {
     const timer = window.setInterval(checkStatus, 8000);
     return () => window.clearInterval(timer);
   }, [checkStatus]);
+
+  const refreshSupportSessions = useCallback(async () => {
+    try {
+      const result = await rpc("get_my_support_sessions");
+      const next = Array.isArray(result) ? result : [];
+      setSupportSessions(next);
+      setActiveSupportId((current) => {
+        if (current && next.some((item) => item.session_id === current)) return current;
+        return next.find((item) => item.status === "open")?.session_id || next[0]?.session_id || "";
+      });
+    } catch {
+      // The rest of the remote console remains usable if support is unavailable.
+    }
+  }, []);
+
+  const loadSupportMessages = useCallback(async (sessionId, quiet = false) => {
+    if (!sessionId) {
+      setSupportMessages([]);
+      return;
+    }
+    if (!quiet) setSupportLoading(true);
+    try {
+      const result = await rpc("get_my_support_messages", { p_session_id: sessionId });
+      setSupportMessages(Array.isArray(result) ? result : []);
+    } catch (reason) {
+      if (!quiet) setNotice(reason instanceof Error ? reason.message : "人工会话加载失败");
+    } finally {
+      if (!quiet) setSupportLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSupportSessions();
+    const timer = window.setInterval(refreshSupportSessions, 5000);
+    return () => window.clearInterval(timer);
+  }, [refreshSupportSessions]);
+
+  useEffect(() => {
+    if (!supportOpen || !activeSupportId) return undefined;
+    loadSupportMessages(activeSupportId);
+    const timer = window.setInterval(() => loadSupportMessages(activeSupportId, true), 3000);
+    return () => window.clearInterval(timer);
+  }, [supportOpen, activeSupportId, loadSupportMessages]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -305,6 +510,43 @@ function ConsoleApp() {
     await supabase.auth.signOut();
   };
 
+  const sendSupportReply = async () => {
+    const value = supportReply.trim();
+    if (!value || !activeSupportId || supportSending) return;
+    setSupportSending(true);
+    try {
+      await rpc("reply_my_support_session", {
+        p_session_id: activeSupportId,
+        p_content: value,
+      });
+      setSupportReply("");
+      await Promise.all([
+        loadSupportMessages(activeSupportId, true),
+        refreshSupportSessions(),
+      ]);
+      setNotice("人工回复已发送");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "人工回复发送失败");
+    } finally {
+      setSupportSending(false);
+    }
+  };
+
+  const closeSupportSession = async (sessionId) => {
+    try {
+      await rpc("close_my_support_session", { p_session_id: sessionId });
+      await Promise.all([
+        loadSupportMessages(sessionId, true),
+        refreshSupportSessions(),
+      ]);
+      setNotice("人工会话已结束");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "无法结束会话");
+    }
+  };
+
+  const openSupportCount = supportSessions.filter((item) => item.status === "open").length;
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -312,10 +554,17 @@ function ConsoleApp() {
           <span className="brand-mark" aria-hidden="true">曦</span>
           <span>小曦薇 <i>·</i> 遥控台</span>
         </div>
-        <button className="settings-button" onClick={() => setAccountOpen(true)}>
-          <Icon name="user" size={18} />
-          账户
-        </button>
+        <div className="topbar-actions">
+          <button className="settings-button support-button" onClick={() => setSupportOpen(true)}>
+            <Icon name="headset" size={18} />
+            人工会话
+            {openSupportCount > 0 && <span className="support-badge">{openSupportCount}</span>}
+          </button>
+          <button className="settings-button" onClick={() => setAccountOpen(true)}>
+            <Icon name="user" size={18} />
+            账户
+          </button>
+        </div>
       </header>
 
       <main>
@@ -411,6 +660,28 @@ function ConsoleApp() {
 
       {notice && <div className="toast" role="status">{notice}</div>}
       {accountOpen && <AccountDialog onClose={() => setAccountOpen(false)} onSignOut={signOut} />}
+      {supportOpen && (
+        <SupportDialog
+          sessions={supportSessions}
+          activeSessionId={activeSupportId}
+          messages={supportMessages}
+          loading={supportLoading}
+          reply={supportReply}
+          sending={supportSending}
+          onSelect={(sessionId) => {
+            setActiveSupportId(sessionId);
+            setSupportReply("");
+          }}
+          onReplyChange={setSupportReply}
+          onSend={sendSupportReply}
+          onRefresh={() => {
+            refreshSupportSessions();
+            loadSupportMessages(activeSupportId);
+          }}
+          onCloseSession={closeSupportSession}
+          onClose={() => setSupportOpen(false)}
+        />
+      )}
     </div>
   );
 }

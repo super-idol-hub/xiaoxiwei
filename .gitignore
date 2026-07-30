@@ -14,6 +14,8 @@ source/standalone/xiaoxiwei/__pycache__/
 source/standalone/xiaoxiwei/*.exe
 source/standalone/xiaoxiwei/*.dll
 source/standalone/xiaoxiwei/*.pdb
+source/standalone/xiaoxiwei/xiaoxiwei-remote.json
+xiaoxiwei-remote.json
 
 *.pyc
 *.tmp

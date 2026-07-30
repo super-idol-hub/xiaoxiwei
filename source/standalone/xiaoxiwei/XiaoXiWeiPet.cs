@@ -8,6 +8,7 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using Microsoft.Win32;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -18,13 +19,13 @@ using System.Windows.Forms;
 using FormsTimer = System.Windows.Forms.Timer;
 
 [assembly: AssemblyTitle("小曦薇")]
-[assembly: AssemblyDescription("小曦薇｜4K 写实粉丝向 Windows 互动角色｜v3.0.6｜开发者：Anbunensi｜个人非商用")]
+[assembly: AssemblyDescription("小曦薇｜4K 写实桌宠｜v3.0.6 三皮肤与远程配置内置版｜开发者：Anbunensi｜个人非商用")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("小曦薇")]
 [assembly: AssemblyTrademark("开发者：Anbunensi")]
 [assembly: AssemblyCopyright("仅供粉丝非商用使用")]
-[assembly: AssemblyVersion("3.0.6.0")]
-[assembly: AssemblyFileVersion("3.0.6.0")]
+[assembly: AssemblyVersion("3.0.6.3")]
+[assembly: AssemblyFileVersion("3.0.6.3")]
 
 namespace XiaoXiWei.Standalone
 {
@@ -42,8 +43,46 @@ namespace XiaoXiWei.Standalone
                     return SelfTest4K.Run(reportPath, previewPath);
                 }
 
+                if (args.Length > 0
+                    && string.Equals(
+                        args[0],
+                        "--remote-config-test",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    string reportPath = args.Length > 1
+                        ? args[1]
+                        : Path.Combine(
+                            Path.GetTempPath(),
+                            "xiaoxiwei-remote-config-test.json");
+                    return RemoteConfiguration.RunSelfTest(reportPath);
+                }
+
+                if (args.Length > 0
+                    && string.Equals(
+                        args[0],
+                        "--embedded-content-test",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    string reportPath = args.Length > 1
+                        ? args[1]
+                        : Path.Combine(
+                            Path.GetTempPath(),
+                            "xiaoxiwei-embedded-content-test.json");
+                    return RemoteConfiguration.RunEmbeddedContentSelfTest(
+                        reportPath);
+                }
+
+                if (args.Length > 0 && string.Equals(args[0], "--startup-self-test", StringComparison.OrdinalIgnoreCase))
+                {
+                    string testDirectory = args.Length > 1
+                        ? args[1]
+                        : Path.Combine(Path.GetTempPath(), "xiaoxiwei-startup-self-test");
+                    return StartupRegistration.RunSelfTest(testDirectory) ? 0 : 2;
+                }
+
                 int autoExitMilliseconds = 0;
                 bool qaMode = false;
+                bool bubbleQa = false;
                 if (args.Length > 0 && string.Equals(args[0], "--qa-window", StringComparison.OrdinalIgnoreCase))
                 {
                     qaMode = true;
@@ -55,6 +94,12 @@ namespace XiaoXiWei.Standalone
                     {
                         autoExitMilliseconds = 8000;
                     }
+                }
+                else if (args.Length > 0
+                    && string.Equals(args[0], "--bubble-qa", StringComparison.OrdinalIgnoreCase))
+                {
+                    bubbleQa = true;
+                    autoExitMilliseconds = 8000;
                 }
 
                 bool createdNew;
@@ -93,6 +138,17 @@ namespace XiaoXiWei.Standalone
 
                     using (PetForm form = new PetForm(autoExitMilliseconds, qaMode))
                     {
+                        if (bubbleQa)
+                        {
+                            form.Shown += delegate
+                            {
+                                form.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    form.ShowRemoteTestBubble(
+                                        "远程消息测试：今天也要开心呀！");
+                                });
+                            };
+                        }
                         Application.Run(form);
                     }
 
@@ -104,7 +160,8 @@ namespace XiaoXiWei.Standalone
             {
                 bool silent = args.Length > 0
                     && (string.Equals(args[0], "--qa-window", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(args[0], "--self-test", StringComparison.OrdinalIgnoreCase));
+                        || string.Equals(args[0], "--self-test", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(args[0], "--bubble-qa", StringComparison.OrdinalIgnoreCase));
                 if (silent)
                 {
                     CrashReporter.ReportSilently(exception);
@@ -655,6 +712,7 @@ namespace XiaoXiWei.Standalone
         public readonly string Name;
         public readonly string Developer;
         public readonly string ArchivePath;
+        public readonly string EmbeddedResourceName;
         public readonly bool IsBuiltIn;
         public readonly string ExclusiveActionName;
 
@@ -665,11 +723,31 @@ namespace XiaoXiWei.Standalone
             string archivePath,
             bool isBuiltIn,
             string exclusiveActionName)
+            : this(
+                id,
+                name,
+                developer,
+                archivePath,
+                isBuiltIn,
+                exclusiveActionName,
+                string.Empty)
+        {
+        }
+
+        public SkinPack(
+            string id,
+            string name,
+            string developer,
+            string archivePath,
+            bool isBuiltIn,
+            string exclusiveActionName,
+            string embeddedResourceName)
         {
             Id = id;
             Name = name;
             Developer = developer;
             ArchivePath = archivePath;
+            EmbeddedResourceName = embeddedResourceName ?? string.Empty;
             IsBuiltIn = isBuiltIn;
             ExclusiveActionName = exclusiveActionName ?? string.Empty;
         }
@@ -693,6 +771,27 @@ namespace XiaoXiWei.Standalone
                 {
                     archiveBytes = FrameResource.LoadArchiveBytes();
                     return true;
+                }
+
+                if (!string.IsNullOrEmpty(EmbeddedResourceName))
+                {
+                    Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(EmbeddedResourceName);
+                    if (stream == null || stream.Length <= 0 || stream.Length > 128L * 1024L * 1024L)
+                    {
+                        if (stream != null)
+                        {
+                            stream.Dispose();
+                        }
+                        return false;
+                    }
+
+                    using (stream)
+                    using (MemoryStream copy = new MemoryStream())
+                    {
+                        stream.CopyTo(copy);
+                        archiveBytes = copy.ToArray();
+                        return true;
+                    }
                 }
 
                 FileInfo archiveFile = new FileInfo(ArchivePath);
@@ -756,6 +855,23 @@ namespace XiaoXiWei.Standalone
                 string.Empty,
                 true,
                 "白裙星光亮相"));
+
+            packs.Add(new SkinPack(
+                "linan-princess",
+                "临安公主｜大奉打更人（内置）",
+                "Anbunensi",
+                string.Empty,
+                false,
+                "公主荡秋千",
+                "XiaoXiWei.Standalone.Skins.LinanPrincess.zip"));
+            packs.Add(new SkinPack(
+                "huang-chengzi",
+                "黄橙子｜如此可爱的我们（内置）",
+                "Anbunensi",
+                string.Empty,
+                false,
+                "橙子放学元气招呼",
+                "XiaoXiWei.Standalone.Skins.HuangChengzi.zip"));
 
             try
             {
@@ -3477,6 +3593,192 @@ namespace XiaoXiWei.Standalone
         }
     }
 
+    internal sealed class StartupRegistration
+    {
+        private const string RunSubKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        private const string RunValueName = "XiaoXiWeiPet";
+        private static readonly Regex EnabledPattern = new Regex(
+            @"enabled\s*=\s*""(true|false)""",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        private readonly bool _registrationAllowed;
+        private readonly string _settingsPath;
+        private bool _enabled;
+
+        public StartupRegistration(bool registrationAllowed)
+            : this(
+                registrationAllowed,
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Anbunensi",
+                    "XiaoXiWeiPet",
+                    "startup.xml"))
+        {
+        }
+
+        internal StartupRegistration(bool registrationAllowed, string settingsPath)
+        {
+            _registrationAllowed = registrationAllowed;
+            _settingsPath = settingsPath;
+            _enabled = true;
+            LoadSettings();
+            if (_registrationAllowed)
+            {
+                TryApplyRegistration(_enabled);
+            }
+        }
+
+        public bool Enabled
+        {
+            get { return _enabled; }
+        }
+
+        public bool SetEnabled(bool enabled)
+        {
+            if (_enabled == enabled)
+            {
+                return true;
+            }
+
+            bool previous = _enabled;
+            _enabled = enabled;
+            if (!SaveSettings())
+            {
+                _enabled = previous;
+                return false;
+            }
+
+            if (_registrationAllowed && !TryApplyRegistration(enabled))
+            {
+                _enabled = previous;
+                SaveSettings();
+                TryApplyRegistration(previous);
+                return false;
+            }
+            return true;
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                if (!File.Exists(_settingsPath))
+                {
+                    return;
+                }
+
+                string xml = File.ReadAllText(_settingsPath, Encoding.UTF8);
+                Match match = EnabledPattern.Match(xml);
+                bool enabled;
+                if (match.Success && bool.TryParse(match.Groups[1].Value, out enabled))
+                {
+                    _enabled = enabled;
+                }
+            }
+            catch
+            {
+                _enabled = true;
+            }
+        }
+
+        private bool SaveSettings()
+        {
+            try
+            {
+                string directory = Path.GetDirectoryName(_settingsPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                string xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n"
+                    + "<startup enabled=\"" + (_enabled ? "true" : "false") + "\" />\r\n";
+                File.WriteAllText(_settingsPath, xml, new UTF8Encoding(false));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string BuildRunCommand()
+        {
+            string executablePath = Path.GetFullPath(Application.ExecutablePath).Replace("\"", string.Empty);
+            return "\"" + executablePath + "\"";
+        }
+
+        private static bool TryApplyRegistration(bool enabled)
+        {
+            try
+            {
+                if (enabled)
+                {
+                    using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RunSubKey))
+                    {
+                        if (key == null)
+                        {
+                            return false;
+                        }
+                        key.SetValue(RunValueName, BuildRunCommand(), RegistryValueKind.String);
+                    }
+                }
+                else
+                {
+                    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(RunSubKey, true))
+                    {
+                        if (key != null)
+                        {
+                            key.DeleteValue(RunValueName, false);
+                        }
+                    }
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal static bool RunSelfTest(string testDirectory)
+        {
+            try
+            {
+                string directory = Path.GetFullPath(testDirectory);
+                Directory.CreateDirectory(directory);
+                string settingsPath = Path.Combine(directory, "startup.xml");
+
+                if (File.Exists(settingsPath))
+                {
+                    File.Delete(settingsPath);
+                }
+
+                StartupRegistration firstRun = new StartupRegistration(false, settingsPath);
+                if (!firstRun.Enabled || !firstRun.SetEnabled(false))
+                {
+                    return false;
+                }
+
+                StartupRegistration disabledReload = new StartupRegistration(false, settingsPath);
+                if (disabledReload.Enabled || !disabledReload.SetEnabled(true))
+                {
+                    return false;
+                }
+
+                StartupRegistration enabledReload = new StartupRegistration(false, settingsPath);
+                string command = BuildRunCommand();
+                return enabledReload.Enabled
+                    && command.Length > 2
+                    && command.StartsWith("\"", StringComparison.Ordinal)
+                    && command.EndsWith("\"", StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
     internal enum PetState
     {
         Idle = 0,
@@ -3573,16 +3875,23 @@ namespace XiaoXiWei.Standalone
         private readonly Random _random;
         private readonly bool _qaMode;
         private readonly WeiboFeedMonitor _weiboMonitor;
+        private readonly StartupRegistration _startupRegistration;
         private readonly SkinCatalog _skinCatalog;
         private readonly Dictionary<string, ToolStripMenuItem> _skinItems;
+        private RemoteMessageClient _remoteMessageClient;
+        private SpeechBubbleForm _speechBubble;
+        private ChatPanelForm _chatPanel;
         private ContextMenuStrip _menu;
         private NotifyIcon _trayIcon;
         private ToolStripMenuItem _topMostItem;
         private ToolStripMenuItem _pauseItem;
         private ToolStripMenuItem _weiboReminderItem;
         private ToolStripMenuItem _weiboCheckNowItem;
+        private ToolStripMenuItem _startupItem;
+        private ToolStripMenuItem _chatItem;
         private ToolStripMenuItem _idleMenu;
         private ToolStripMenuItem _skinMenu;
+        private bool _updatingStartupCheck;
         private SkinPack _currentSkin;
         private SkinPack _pendingSkin;
         private SkinPack _queuedSkin;
@@ -3659,6 +3968,12 @@ namespace XiaoXiWei.Standalone
             }
             _frameCache = new ScaledFrameCache(initialArchive, _currentSkin.EntryPrefix);
             _weiboMonitor = new WeiboFeedMonitor(!_qaMode, OnWeiboPostDiscovered);
+            _startupRegistration = new StartupRegistration(!_qaMode);
+            _remoteMessageClient = RemoteMessageClient.Create(
+                OnRemoteMessageReceived,
+                null);
+            _speechBubble = new SpeechBubbleForm();
+            _chatPanel = new ChatPanelForm();
 
             Text = "小曦薇";
             FormBorderStyle = FormBorderStyle.None;
@@ -3723,6 +4038,9 @@ namespace XiaoXiWei.Standalone
             ScheduleNextRoam(4000);
             ScheduleNextIdleAction(false);
             _weiboMonitor.Start();
+            _speechBubble.UpdateAnchor(Bounds, TopMost);
+            _chatPanel.UpdateAnchor(Bounds, TopMost);
+            _remoteMessageClient.Start();
 
             if (_qaMode)
             {
@@ -3757,6 +4075,32 @@ namespace XiaoXiWei.Standalone
         protected override void OnPaintBackground(PaintEventArgs eventArgs)
         {
             // UpdateLayeredWindow owns all pixels.
+        }
+
+        protected override void OnLocationChanged(EventArgs eventArgs)
+        {
+            base.OnLocationChanged(eventArgs);
+            if (_speechBubble != null)
+            {
+                _speechBubble.UpdateAnchor(Bounds, TopMost);
+            }
+            if (_chatPanel != null)
+            {
+                _chatPanel.UpdateAnchor(Bounds, TopMost);
+            }
+        }
+
+        protected override void OnSizeChanged(EventArgs eventArgs)
+        {
+            base.OnSizeChanged(eventArgs);
+            if (_speechBubble != null)
+            {
+                _speechBubble.UpdateAnchor(Bounds, TopMost);
+            }
+            if (_chatPanel != null)
+            {
+                _chatPanel.UpdateAnchor(Bounds, TopMost);
+            }
         }
 
         protected override void OnMouseDown(MouseEventArgs eventArgs)
@@ -3921,6 +4265,21 @@ namespace XiaoXiWei.Standalone
                 {
                     _weiboMonitor.Dispose();
                 }
+                if (_remoteMessageClient != null)
+                {
+                    _remoteMessageClient.Dispose();
+                    _remoteMessageClient = null;
+                }
+                if (_speechBubble != null)
+                {
+                    _speechBubble.Dispose();
+                    _speechBubble = null;
+                }
+                if (_chatPanel != null)
+                {
+                    _chatPanel.Dispose();
+                    _chatPanel = null;
+                }
                 if (_animationTimer != null)
                 {
                     _animationTimer.Stop();
@@ -3962,6 +4321,19 @@ namespace XiaoXiWei.Standalone
             title.Enabled = false;
             _menu.Items.Add(title);
             _menu.Items.Add(new ToolStripSeparator());
+
+            _chatItem = new ToolStripMenuItem("聊天");
+            _chatItem.ToolTipText = "打开 AI 小曦薇聊天光幕";
+            _chatItem.Click += delegate
+            {
+                if (_chatPanel != null)
+                {
+                    _chatPanel.ShowPanel(Bounds, TopMost);
+                }
+            };
+            _menu.Items.Add(_chatItem);
+            _menu.Items.Add(new ToolStripSeparator());
+
             AddActionItem("挥挥手", PetState.Waving, 2);
             AddActionItem("跳一下", PetState.Jumping, 2);
             AddActionItem("等你回应", PetState.Waiting, 2);
@@ -3988,12 +4360,46 @@ namespace XiaoXiWei.Standalone
             _weiboCheckNowItem.Click += delegate { _weiboMonitor.CheckNow(); };
             _menu.Items.Add(_weiboCheckNowItem);
 
+            _startupItem = new ToolStripMenuItem("开机自启");
+            _startupItem.CheckOnClick = true;
+            _startupItem.Checked = _startupRegistration.Enabled;
+            _startupItem.ToolTipText = "登录 Windows 后自动启动小曦薇";
+            _startupItem.CheckedChanged += delegate
+            {
+                if (_updatingStartupCheck)
+                {
+                    return;
+                }
+
+                bool previous = _startupRegistration.Enabled;
+                if (!_startupRegistration.SetEnabled(_startupItem.Checked))
+                {
+                    _updatingStartupCheck = true;
+                    _startupItem.Checked = previous;
+                    _updatingStartupCheck = false;
+                    MessageBox.Show(
+                        "无法更新开机自启设置，请检查当前用户的注册表权限。",
+                        "小曦薇",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            };
+            _menu.Items.Add(_startupItem);
+
             _topMostItem = new ToolStripMenuItem("总在最前");
             _topMostItem.CheckOnClick = true;
             _topMostItem.Checked = true;
             _topMostItem.CheckedChanged += delegate
             {
                 TopMost = _topMostItem.Checked;
+                if (_speechBubble != null)
+                {
+                    _speechBubble.UpdateAnchor(Bounds, TopMost);
+                }
+                if (_chatPanel != null)
+                {
+                    _chatPanel.UpdateAnchor(Bounds, TopMost);
+                }
             };
             _menu.Items.Add(_topMostItem);
 
@@ -4049,8 +4455,8 @@ namespace XiaoXiWei.Standalone
             ToolStripMenuItem aboutItem = new ToolStripMenuItem("使用说明");
             aboutItem.Click += delegate
             {
-                MessageBox.Show(
-                    "左键拖动：拖动达到阈值后她会吓一跳；被拖动时保持受惊，松手后会叉腰跺脚生气\n双击：挥手\n鼠标滚轮：调整大小\n鼠标靠近一定范围：她会平滑看向鼠标；移远后立即回到只眨眼的普通待机\n安静待机：普通眨眼为主，静止一段时间后会随机表演；内置白裙另有卖萌、大笑、哭和“白裙星光亮相”，外置皮肤也可声明专属动作\n坐下玩手机：坐下后会一直玩手机，左键点她才会收起手机并起身\n侧躺入睡：她会一直安睡，z/Z 从头顶向上飘；左键点她会伸懒腰后起身\n临安公主：从右键动作菜单手动选择“公主荡秋千”；她会持续摆动，左键点她后会在最低点下秋千\n切换皮肤：人物会分层伪3D转身，在半圈中由头到脚完成变装并定格；短暂变身期间动作输入会锁定\n右键：可手动预览待机动作，或调整皮肤、微博提醒和设置\nCtrl+Q：退出\n\n微博提醒读取新浪公开页面，每约10分钟低频检查一次；首次只建立基线。公开页面可能延迟，也可能因页面改版而暂时失效；断网时不会弹出错误。\n\n【皮肤包接口】\n可在程序同级创建 skins\\<id>\\skin.xml 和 frames.zip。skin.xml 根元素格式为 <skin apiVersion=\"1\" id=\"...\" name=\"...\" developer=\"...\" archive=\"frames.zip\" exclusiveAction=\"可选菜单名\"/>；exclusiveAction 非空时 r15 作为该外置皮肤专属动作。帧文件使用 r00/c00.png 的固定命名、相同动作行映射和 528×808 尺寸。程序会在运行时为关键帧生成至少24个平滑显示阶段；皮肤包无需膨胀帧数。缺帧、路径异常或尺寸不符的皮肤会被静默跳过并自动回退内置白裙。\n\n开发者：Anbunensi\n\n【免责声明】\n本程序由 Anbunensi 独立、非商业开发，仅供田曦薇粉丝个人欣赏、交流与非商业使用，纯属为爱发电。人物姓名、肖像、形象及相关素材的权利归田曦薇本人及相应权利方所有。本程序为非官方作品，与田曦薇本人、工作室、经纪机构及品牌方无官方关联，也不代表已获得其授权。禁止售卖、收费分发、广告引流、商业推广、二次商用、冒用官方名义，或用于侵犯肖像权、名誉权及其他合法权益。若权利方认为内容不妥，请停止传播并联系开发者处理。",
+                ShowAboutMessage(
+                    "左键拖动：拖动达到阈值后她会吓一跳；被拖动时保持受惊，松手后会叉腰跺脚生气\n双击：挥手\n鼠标滚轮：调整大小\n鼠标靠近一定范围：她会平滑看向鼠标；移远后立即回到只眨眼的普通待机\n安静待机：普通眨眼为主，静止一段时间后会随机表演；内置白裙另有卖萌、大笑、哭和“白裙星光亮相”，外置皮肤也可声明专属动作\n坐下玩手机：坐下后会一直玩手机，左键点她才会收起手机并起身\n侧躺入睡：她会一直安睡，z/Z 从头顶向上飘；左键点她会伸懒腰后起身\n临安公主：从右键动作菜单手动选择“公主荡秋千”；她会持续摆动，左键点她后会在最低点下秋千\n切换皮肤：人物会分层伪3D转身，在半圈中由头到脚完成变装并定格；短暂变身期间动作输入会锁定\n右键：可手动预览待机动作，或调整皮肤、微博提醒、开机自启和设置\nCtrl+Q：退出\n\n开机自启默认开启；取消右键菜单中的勾选后会记住关闭状态。该功能只写入当前 Windows 用户的启动项，不需要管理员权限。\n\n微博提醒读取新浪公开页面，每约10分钟低频检查一次；首次只建立基线。公开页面可能延迟，也可能因页面改版而暂时失效；断网时不会弹出错误。\n\n【皮肤包接口】\n可在程序同级创建 skins\\<id>\\skin.xml 和 frames.zip。skin.xml 根元素格式为 <skin apiVersion=\"1\" id=\"...\" name=\"...\" developer=\"...\" archive=\"frames.zip\" exclusiveAction=\"可选菜单名\"/>；exclusiveAction 非空时 r15 作为该外置皮肤专属动作。帧文件使用 r00/c00.png 的固定命名、相同动作行映射和 528×808 尺寸。程序会在运行时为关键帧生成至少24个平滑显示阶段；皮肤包无需膨胀帧数。缺帧、路径异常或尺寸不符的皮肤会被静默跳过并自动回退内置白裙。\n\n开发者：Anbunensi\n\n【免责声明】\n本程序由个人独立开发，仅供田曦薇粉丝个人欣赏、交流与非商业使用，纯属为爱发电。人物姓名、肖像、形象及相关素材的权利归田曦薇本人及相应权利方所有。本程序为非官方作品，与田曦薇本人、工作室、经纪机构及品牌方无官方关联，也不代表已获得其授权。禁止售卖、收费分发、广告引流、商业推广、二次商用、冒用官方名义，或用于侵犯肖像权、名誉权及其他合法权益。若权利方认为内容不妥，请停止传播并联系开发者处理。",
                     "小曦薇",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -4062,6 +4468,31 @@ namespace XiaoXiWei.Standalone
             _menu.Items.Add(exitItem);
 
             ContextMenuStrip = _menu;
+        }
+
+        private static DialogResult ShowAboutMessage(
+            string text,
+            string caption,
+            MessageBoxButtons buttons,
+            MessageBoxIcon icon)
+        {
+            return MessageBox.Show(RemoveSkinInterfaceSection(text), caption, buttons, icon);
+        }
+
+        private static string RemoveSkinInterfaceSection(string text)
+        {
+            const string SkinInterfaceHeading = "\n\n【皮肤包接口】";
+            const string DeveloperHeading = "\n\n开发者：";
+            int sectionStart = text.IndexOf(SkinInterfaceHeading, StringComparison.Ordinal);
+            if (sectionStart >= 0)
+            {
+                int sectionEnd = text.IndexOf(DeveloperHeading, sectionStart, StringComparison.Ordinal);
+                if (sectionEnd > sectionStart)
+                {
+                    text = text.Remove(sectionStart, sectionEnd - sectionStart);
+                }
+            }
+            return text;
         }
 
         private void AddActionItem(string text, PetState state, int loops)
@@ -4575,6 +5006,46 @@ namespace XiaoXiWei.Standalone
                 }
             };
             _trayIcon.Visible = true;
+        }
+
+        private bool OnRemoteMessageReceived(RemoteMessage message)
+        {
+            if (message == null
+                || string.IsNullOrWhiteSpace(message.content)
+                || IsDisposed
+                || Disposing
+                || !IsHandleCreated)
+            {
+                return false;
+            }
+
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    if (IsDisposed || Disposing || _speechBubble == null)
+                    {
+                        return;
+                    }
+                    _speechBubble.UpdateAnchor(Bounds, TopMost);
+                    _speechBubble.Enqueue(message.content);
+                });
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        internal void ShowRemoteTestBubble(string text)
+        {
+            if (_speechBubble == null || IsDisposed || Disposing)
+            {
+                return;
+            }
+            _speechBubble.UpdateAnchor(Bounds, TopMost);
+            _speechBubble.Enqueue(text);
         }
 
         private void OnWeiboPostDiscovered(long postId, Uri postUri)

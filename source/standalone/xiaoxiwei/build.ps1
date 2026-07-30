@@ -31,6 +31,10 @@ $motionRoot = Join-Path $frameWork 'motion'
 $icon = Join-Path $project 'xiaoxiwei.ico'
 $manifest = Join-Path $project 'app.manifest'
 $source = Join-Path $project 'XiaoXiWeiPet.cs'
+$remoteSource = Join-Path $project 'RemoteMessageClient.cs'
+$bubbleSource = Join-Path $project 'SpeechBubbleForm.cs'
+$chatApiSource = Join-Path $project 'ChatApiClient.cs'
+$chatPanelSource = Join-Path $project 'ChatPanelForm.cs'
 $outputDirectory = Join-Path $workspace 'outputs\xiaoxiwei-standalone-4k-v3'
 $motionReport = Join-Path $outputDirectory 'motion-build-report.json'
 $motionContact = Join-Path $outputDirectory 'motion-ghost-free-contact.png'
@@ -89,12 +93,17 @@ if ($LASTEXITCODE -ne 0) { throw "Motion mesh build failed with exit code $LASTE
   /reference:System.Core.dll `
   /reference:System.Drawing.dll `
   /reference:System.IO.Compression.dll `
+  /reference:System.Web.Extensions.dll `
   /reference:System.Windows.Forms.dll `
   "/resource:$archive,XiaoXiWei.Standalone.Frames.zip" `
   "/win32icon:$icon" `
   "/win32manifest:$manifest" `
   "/out:$output" `
-  $source
+  $source `
+  $remoteSource `
+  $bubbleSource `
+  $chatApiSource `
+  $chatPanelSource
 
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed with exit code $LASTEXITCODE" }
 Get-Item -LiteralPath $output

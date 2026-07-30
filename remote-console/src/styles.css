@@ -713,6 +713,275 @@ footer {
   margin-top: 15px;
 }
 
+.topbar-actions,
+.support-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-button {
+  position: relative;
+}
+
+.support-badge {
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0 6px;
+  color: white;
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.support-dialog {
+  width: min(960px, calc(100vw - 40px));
+  height: min(680px, calc(100vh - 40px));
+  padding: 0;
+  overflow: hidden;
+}
+
+.support-header {
+  min-height: 94px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.support-header .dialog-heading {
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.support-mark {
+  background: linear-gradient(145deg, #31a8d6, #2479b6);
+  box-shadow: 0 10px 24px rgba(36, 121, 182, 0.22);
+}
+
+.support-header-actions .icon-button,
+.support-refresh {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.support-layout {
+  height: calc(100% - 94px);
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+}
+
+.support-session-list {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 14px;
+  background: #f7f9fc;
+  border-right: 1px solid var(--border);
+}
+
+.support-session {
+  width: 100%;
+  min-height: 80px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 4px 11px;
+  padding: 13px;
+  text-align: left;
+  color: #363d4b;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.support-session:hover {
+  background: white;
+  border-color: #e3e7ee;
+}
+
+.support-session.active {
+  background: white;
+  border-color: #a8d8e9;
+  box-shadow: 0 8px 22px rgba(41, 89, 111, 0.08);
+}
+
+.support-status-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #adb4c0;
+}
+
+.support-status-dot.open {
+  background: #23b584;
+  box-shadow: 0 0 0 4px rgba(35, 181, 132, 0.12);
+}
+
+.support-session-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.support-session-copy strong {
+  font-size: 13px;
+}
+
+.support-session-copy small {
+  overflow: hidden;
+  color: #7d8594;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.support-session time {
+  grid-column: 2;
+  color: #a0a6b1;
+  font-size: 10px;
+}
+
+.support-conversation {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.support-conversation-meta {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.support-conversation-meta > div {
+  display: grid;
+  gap: 3px;
+}
+
+.support-conversation-meta strong {
+  color: #28303d;
+  font-size: 14px;
+}
+
+.support-conversation-meta span {
+  color: #9299a6;
+  font-size: 11px;
+}
+
+.danger-text {
+  color: #b84055;
+}
+
+.support-message-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(49, 168, 214, 0.06), transparent 16rem),
+    white;
+}
+
+.support-message {
+  max-width: 76%;
+  align-self: flex-start;
+  padding: 11px 13px;
+  color: #3b4350;
+  background: #f3f6f9;
+  border: 1px solid #e2e7ed;
+  border-radius: 14px 14px 14px 4px;
+}
+
+.support-message.operator {
+  align-self: flex-end;
+  color: white;
+  background: #2988b5;
+  border-color: #2988b5;
+  border-radius: 14px 14px 4px 14px;
+}
+
+.support-message.assistant {
+  background: #edf9f6;
+  border-color: #cdece4;
+}
+
+.support-message.system {
+  max-width: 90%;
+  align-self: center;
+  color: #7f8794;
+  background: transparent;
+  border-style: dashed;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.support-message-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+
+.support-message-meta time {
+  opacity: 0.67;
+}
+
+.support-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.support-reply {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 122px;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.support-reply textarea {
+  min-height: 76px;
+  max-height: 150px;
+  padding: 12px 13px;
+  font-size: 13px;
+}
+
+.support-reply .primary-button {
+  min-height: 76px;
+}
+
+.support-empty {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  color: #9299a6;
+  text-align: center;
+  font-size: 13px;
+}
+
+.conversation-empty {
+  grid-row: 1 / -1;
+}
+
 code {
   padding: 2px 5px;
   color: #5e4350;
@@ -772,6 +1041,14 @@ code {
     width: 100%;
     margin-top: 18px;
   }
+
+  .support-dialog {
+    height: calc(100vh - 24px);
+  }
+
+  .support-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 520px) {
@@ -816,6 +1093,62 @@ code {
 
   .settings-button {
     font-size: 0;
+  }
+
+  .support-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 10px;
+  }
+
+  .support-dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    border-radius: 14px;
+  }
+
+  .support-header {
+    min-height: 82px;
+    padding: 14px;
+  }
+
+  .support-header .dialog-heading p {
+    display: none;
+  }
+
+  .support-header .setup-mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .support-layout {
+    height: calc(100% - 82px);
+    grid-template-columns: 1fr;
+    grid-template-rows: 112px minmax(0, 1fr);
+  }
+
+  .support-session-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .support-session {
+    min-width: 210px;
+    min-height: 80px;
+  }
+
+  .support-message {
+    max-width: 90%;
+  }
+
+  .support-reply {
+    grid-template-columns: 1fr 92px;
+    padding: 10px;
   }
 
   .composer-panel {
