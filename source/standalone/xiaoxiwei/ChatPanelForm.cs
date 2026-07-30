@@ -25,6 +25,7 @@ namespace XiaoXiWei.Standalone
         private readonly Button _assistButton;
         private readonly Button _closeButton;
         private readonly System.Windows.Forms.Timer _pollTimer;
+        private readonly PortableRemoteAssistance _remoteAssistance;
         private Rectangle _petBounds;
         private bool _requestInFlight;
         private bool _humanMode;
@@ -35,6 +36,18 @@ namespace XiaoXiWei.Standalone
         {
             _client = new ChatApiClient();
             _history = new List<ChatConversationMessage>();
+            _remoteAssistance = new PortableRemoteAssistance();
+            _remoteAssistance.Exited += delegate
+            {
+                SafeBeginInvoke(delegate
+                {
+                    UpdateRemoteAssistButton();
+                    if (_humanMode)
+                    {
+                        _status.Text = "人工会话中 · 远程协助已停止";
+                    }
+                });
+            };
 
             Text = "和小曦薇聊天";
             FormBorderStyle = FormBorderStyle.None;
@@ -163,7 +176,17 @@ namespace XiaoXiWei.Standalone
                 Color.FromArgb(11, 78, 108),
                 Color.FromArgb(188, 242, 255));
             _assistButton.Visible = false;
-            _assistButton.Click += delegate { RequestRemoteAssistance(); };
+            _assistButton.Click += delegate
+            {
+                if (_remoteAssistance.IsRunning)
+                {
+                    StopRemoteAssistance();
+                }
+                else
+                {
+                    RequestRemoteAssistance();
+                }
+            };
             Controls.Add(_assistButton);
 
             Label privacy = new Label();
@@ -438,6 +461,7 @@ namespace XiaoXiWei.Standalone
                     _sessionId = response.sessionId;
                     _transferButton.Text = "结束人工";
                     _assistButton.Visible = true;
+                    UpdateRemoteAssistButton();
                     _status.Text = "已转人工 · 等待控制台回复";
                     AppendSystem("已把本次对话转给人工，请在这里继续留言。");
                     _pollTimer.Start();
@@ -455,6 +479,10 @@ namespace XiaoXiWei.Standalone
                 delegate { return _client.CloseHuman(_sessionId); },
                 delegate(ChatServiceResponse response)
                 {
+                    if (_remoteAssistance.IsRunning)
+                    {
+                        _remoteAssistance.Stop();
+                    }
                     _humanMode = false;
                     _sessionId = string.Empty;
                     _transferButton.Text = "转人工";
@@ -489,6 +517,7 @@ namespace XiaoXiWei.Standalone
                             _sessionId = response.sessionId;
                             _transferButton.Text = "结束人工";
                             _assistButton.Visible = true;
+                            UpdateRemoteAssistButton();
                             _status.Text = "人工会话中 · 控制台已连接";
                             _pollTimer.Start();
                             if (!wasHuman)
@@ -502,6 +531,10 @@ namespace XiaoXiWei.Standalone
                         }
                         else if (_humanMode)
                         {
+                            if (_remoteAssistance.IsRunning)
+                            {
+                                _remoteAssistance.Stop();
+                            }
                             _humanMode = false;
                             _sessionId = string.Empty;
                             _transferButton.Text = "转人工";
@@ -595,9 +628,12 @@ namespace XiaoXiWei.Standalone
 
             DialogResult consent = MessageBox.Show(
                 this,
-                "将打开 Windows“快速助手”。只有你输入一次性安全码，"
-                    + "并在系统窗口中再次选择“允许”后，对方才能查看或控制电脑。"
-                    + "\r\n\r\n你可以随时关闭快速助手来结束远程协助。是否继续？",
+                "将启动程序内置的开源 RustDesk 便携组件，不需要安装。"
+                    + "只有你把窗口中显示的设备 ID 和一次性密码发送给当前人工客服后，"
+                    + "对方才能发起连接。\r\n\r\n"
+                    + "请不要把连接信息发送给其他人。程序不会设置固定密码，"
+                    + "你可以点击“停止远程协助”或关闭 RustDesk 随时终止连接。"
+                    + "\r\n\r\n是否继续？",
                 "请求远程协助",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Information,
@@ -615,36 +651,54 @@ namespace XiaoXiWei.Standalone
                 },
                 delegate(ChatServiceResponse response)
                 {
-                    AppendSystem(
-                        "远程协助请求已发送。请在快速助手中输入对方提供的"
-                            + "一次性安全码，并再次确认是否允许控制。");
-                    _status.Text = "人工会话中 · 等待快速助手安全码";
-                    OpenQuickAssist();
+                    try
+                    {
+                        _remoteAssistance.Start();
+                        UpdateRemoteAssistButton();
+                        AppendSystem(
+                            "RustDesk 已打开。请把窗口中的设备 ID 和一次性密码"
+                                + "发送在当前人工会话里。协助结束后请点击"
+                                + "“停止远程协助”。");
+                        _status.Text =
+                            "人工会话中 · 等待发送 RustDesk 连接信息";
+                    }
+                    catch (Exception exception)
+                    {
+                        AppendSystem(
+                            string.IsNullOrWhiteSpace(exception.Message)
+                                ? "无法启动内置远程协助组件，请稍后重试。"
+                                : exception.Message);
+                        UpdateRemoteAssistButton();
+                    }
                 });
         }
 
-        private void OpenQuickAssist()
+        private void StopRemoteAssistance()
         {
-            try
-            {
-                ProcessStartInfo startInfo =
-                    new ProcessStartInfo("quickassist:");
-                startInfo.UseShellExecute = true;
-                Process.Start(startInfo);
-            }
-            catch
-            {
-                try
-                {
-                    Process.Start("quickassist.exe");
-                }
-                catch
-                {
-                    AppendSystem(
-                        "没有找到 Windows 快速助手。请从 Microsoft Store "
-                            + "安装“快速助手”后重试。");
-                }
-            }
+            _remoteAssistance.Stop();
+            UpdateRemoteAssistButton();
+            AppendSystem(
+                "远程协助组件已关闭。本次连接信息已经失效。");
+            _status.Text = "人工会话中 · 远程协助已停止";
+        }
+
+        private void UpdateRemoteAssistButton()
+        {
+            bool running = _remoteAssistance.IsRunning;
+            _assistButton.Text =
+                running ? "停止远程协助" : "请求远程协助";
+            _assistButton.BackColor = running
+                ? Color.FromArgb(142, 47, 62)
+                : Color.FromArgb(11, 78, 108);
+            _assistButton.ForeColor = running
+                ? Color.White
+                : Color.FromArgb(188, 242, 255);
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            _remoteAssistance.Dispose();
+            base.OnFormClosed(e);
         }
 
         protected override void OnHandleCreated(EventArgs e)

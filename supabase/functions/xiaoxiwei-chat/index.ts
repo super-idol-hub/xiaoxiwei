@@ -268,9 +268,9 @@ Deno.serve(async (request) => {
       await insertSupportMessages(session.id, [{
         sender: "system",
         content:
-          "REMOTE_ASSIST_REQUEST:朋友请求使用 Windows 快速助手进行远程协助。"
-          + "只有朋友输入一次性安全码并在她的电脑上再次确认允许后，"
-          + "你才能查看或控制；她可以随时结束连接。",
+          "REMOTE_ASSIST_REQUEST:朋友请求使用内置 RustDesk 便携组件进行远程协助。"
+          + "请让她只在当前人工会话中发送 RustDesk 设备 ID 和一次性密码。"
+          + "程序不会设置固定密码或安装后台服务，她可以随时关闭组件终止连接。",
       }]);
       return json({
         mode: "human",

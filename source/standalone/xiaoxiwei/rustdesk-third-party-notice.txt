@@ -1,0 +1,21 @@
+RustDesk portable client 1.4.9
+Copyright (c) RustDesk contributors.
+
+This product redistributes the unmodified official Windows x64 portable
+client as a separate helper component. RustDesk is licensed under the
+GNU Affero General Public License, version 3.
+
+Official source:
+https://github.com/rustdesk/rustdesk/tree/1.4.9
+
+Official release:
+https://github.com/rustdesk/rustdesk/releases/tag/1.4.9
+
+Bundled binary:
+rustdesk-1.4.9-x86_64.exe
+
+SHA-256:
+EAEDEB0088E687BF46F7C46A9C6EA5493CE51F3134DFD6ACBEDB47B5B9136274
+
+The full AGPL-3.0 license is extracted beside the helper when remote
+assistance is opened.

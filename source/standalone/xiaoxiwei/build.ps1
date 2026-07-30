@@ -1,6 +1,8 @@
 ﻿param(
     [string]$PythonPath = '',
-    [string]$SkillDirectory = ''
+    [string]$SkillDirectory = '',
+    [string]$RustDeskPath = '',
+    [string]$RustDeskLicensePath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +37,15 @@ $remoteSource = Join-Path $project 'RemoteMessageClient.cs'
 $bubbleSource = Join-Path $project 'SpeechBubbleForm.cs'
 $chatApiSource = Join-Path $project 'ChatApiClient.cs'
 $chatPanelSource = Join-Path $project 'ChatPanelForm.cs'
+$remoteAssistanceSource = Join-Path $project 'PortableRemoteAssistance.cs'
+$rustDeskDirectory = Join-Path $project 'vendor\rustdesk'
+if ([string]::IsNullOrWhiteSpace($RustDeskPath)) {
+    $RustDeskPath = Join-Path $rustDeskDirectory 'rustdesk-1.4.9-x86_64.exe'
+}
+if ([string]::IsNullOrWhiteSpace($RustDeskLicensePath)) {
+    $RustDeskLicensePath = Join-Path $rustDeskDirectory 'LICENCE-RustDesk.txt'
+}
+$rustDeskNoticePath = Join-Path $project 'rustdesk-third-party-notice.txt'
 $outputDirectory = Join-Path $workspace 'outputs\xiaoxiwei-standalone-4k-v3'
 $motionReport = Join-Path $outputDirectory 'motion-build-report.json'
 $motionContact = Join-Path $outputDirectory 'motion-ghost-free-contact.png'
@@ -49,6 +60,15 @@ if (-not (Test-Path -LiteralPath $frameBuilder)) { throw "Frame builder not foun
 if (-not (Test-Path -LiteralPath $motionBuilder)) { throw "Motion builder not found: $motionBuilder" }
 if (-not (Test-Path -LiteralPath $paletteValidator)) { throw "Action palette validator not found: $paletteValidator" }
 if (-not (Test-Path -LiteralPath $icon)) { throw "Icon not found: $icon" }
+if (-not (Test-Path -LiteralPath $RustDeskPath)) {
+    throw "RustDesk portable client not found. Run .\fetch-rustdesk.ps1 first: $RustDeskPath"
+}
+if (-not (Test-Path -LiteralPath $RustDeskLicensePath)) {
+    throw "RustDesk license not found. Run .\fetch-rustdesk.ps1 first: $RustDeskLicensePath"
+}
+if (-not (Test-Path -LiteralPath $rustDeskNoticePath)) {
+    throw "RustDesk third-party notice not found: $rustDeskNoticePath"
+}
 if (-not (Test-Path -LiteralPath (Join-Path $run 'decoded\angry-stomp.png'))) { throw 'Angry-stomp source row is missing.' }
 if (-not (Test-Path -LiteralPath (Join-Path $run 'decoded\idle-builtin-exclusive.png'))) { throw 'Built-in exclusive action source row is missing.' }
 
@@ -96,6 +116,9 @@ if ($LASTEXITCODE -ne 0) { throw "Motion mesh build failed with exit code $LASTE
   /reference:System.Web.Extensions.dll `
   /reference:System.Windows.Forms.dll `
   "/resource:$archive,XiaoXiWei.Standalone.Frames.zip" `
+  "/resource:$RustDeskPath,XiaoXiWei.Standalone.Support.RustDesk.exe" `
+  "/resource:$RustDeskLicensePath,XiaoXiWei.Standalone.Support.RustDesk.LICENSE.txt" `
+  "/resource:$rustDeskNoticePath,XiaoXiWei.Standalone.Support.RustDesk.NOTICE.txt" `
   "/win32icon:$icon" `
   "/win32manifest:$manifest" `
   "/out:$output" `
@@ -103,7 +126,8 @@ if ($LASTEXITCODE -ne 0) { throw "Motion mesh build failed with exit code $LASTE
   $remoteSource `
   $bubbleSource `
   $chatApiSource `
-  $chatPanelSource
+  $chatPanelSource `
+  $remoteAssistanceSource
 
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed with exit code $LASTEXITCODE" }
 Get-Item -LiteralPath $output

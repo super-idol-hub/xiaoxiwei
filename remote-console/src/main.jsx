@@ -319,9 +319,14 @@ function SupportDialog({
                   </div>
                   <div className="support-conversation-actions">
                     {active.status === "open" && remoteAssistRequested && (
-                      <a className="support-assist-launch" href="quickassist:">
+                      <a
+                        className="support-assist-launch"
+                        href="https://rustdesk.com/"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         <Icon name="headset" size={16} />
-                        打开 Windows 快速助手
+                        获取 RustDesk 控制端
                       </a>
                     )}
                     {active.status === "open" && (
