@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -20,6 +22,7 @@ namespace XiaoXiWei.Standalone
         private readonly Label _status;
         private readonly Button _sendButton;
         private readonly Button _transferButton;
+        private readonly Button _assistButton;
         private readonly Button _closeButton;
         private readonly System.Windows.Forms.Timer _pollTimer;
         private Rectangle _petBounds;
@@ -47,6 +50,7 @@ namespace XiaoXiWei.Standalone
                 GraphicsUnit.Point);
             DoubleBuffered = true;
             KeyPreview = true;
+            Opacity = 0.94d;
 
             Label eyebrow = new Label();
             eyebrow.AutoSize = true;
@@ -153,10 +157,19 @@ namespace XiaoXiWei.Standalone
             };
             Controls.Add(_transferButton);
 
+            _assistButton = CreateButton(
+                "请求远程协助",
+                new Rectangle(138, 472, 132, 38),
+                Color.FromArgb(11, 78, 108),
+                Color.FromArgb(188, 242, 255));
+            _assistButton.Visible = false;
+            _assistButton.Click += delegate { RequestRemoteAssistance(); };
+            Controls.Add(_assistButton);
+
             Label privacy = new Label();
             privacy.AutoSize = false;
-            privacy.Location = new Point(140, 477);
-            privacy.Size = new Size(246, 33);
+            privacy.Location = new Point(276, 477);
+            privacy.Size = new Size(110, 33);
             privacy.TextAlign = ContentAlignment.MiddleRight;
             privacy.ForeColor = Color.FromArgb(99, 158, 180);
             privacy.Font = new Font(
@@ -164,7 +177,7 @@ namespace XiaoXiWei.Standalone
                 7.5f,
                 FontStyle.Regular,
                 GraphicsUnit.Point);
-            privacy.Text = "普通聊天不会进入人工控制台";
+            privacy.Text = "需本人再次确认";
             Controls.Add(privacy);
 
             _pollTimer = new System.Windows.Forms.Timer();
@@ -186,6 +199,7 @@ namespace XiaoXiWei.Standalone
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            TryEnableAcrylic();
             UpdatePanelRegion();
             _input.Focus();
             if (!_humanMode && !_requestInFlight && _client.IsConfigured)
@@ -218,6 +232,29 @@ namespace XiaoXiWei.Standalone
                 {
                     e.Graphics.DrawLine(scan, 18, y, Width - 18, y);
                 }
+            }
+            using (Pen corner = new Pen(
+                Color.FromArgb(180, 83, 220, 255),
+                2.0f))
+            {
+                e.Graphics.DrawLine(corner, 10, 28, 10, 10);
+                e.Graphics.DrawLine(corner, 10, 10, 28, 10);
+                e.Graphics.DrawLine(corner, Width - 29, 10, Width - 11, 10);
+                e.Graphics.DrawLine(corner, Width - 11, 10, Width - 11, 28);
+                e.Graphics.DrawLine(corner, 10, Height - 29, 10, Height - 11);
+                e.Graphics.DrawLine(corner, 10, Height - 11, 28, Height - 11);
+                e.Graphics.DrawLine(
+                    corner,
+                    Width - 29,
+                    Height - 11,
+                    Width - 11,
+                    Height - 11);
+                e.Graphics.DrawLine(
+                    corner,
+                    Width - 11,
+                    Height - 29,
+                    Width - 11,
+                    Height - 11);
             }
 
             Point[] tail = _tailOnRight
@@ -400,6 +437,7 @@ namespace XiaoXiWei.Standalone
                     _humanMode = true;
                     _sessionId = response.sessionId;
                     _transferButton.Text = "结束人工";
+                    _assistButton.Visible = true;
                     _status.Text = "已转人工 · 等待控制台回复";
                     AppendSystem("已把本次对话转给人工，请在这里继续留言。");
                     _pollTimer.Start();
@@ -420,6 +458,7 @@ namespace XiaoXiWei.Standalone
                     _humanMode = false;
                     _sessionId = string.Empty;
                     _transferButton.Text = "转人工";
+                    _assistButton.Visible = false;
                     _status.Text = "AI 在线 · 回复由通义千问生成";
                     _pollTimer.Stop();
                     AppendSystem("人工会话已结束，接下来由 AI 小曦薇陪你聊天。");
@@ -449,6 +488,7 @@ namespace XiaoXiWei.Standalone
                             _humanMode = true;
                             _sessionId = response.sessionId;
                             _transferButton.Text = "结束人工";
+                            _assistButton.Visible = true;
                             _status.Text = "人工会话中 · 控制台已连接";
                             _pollTimer.Start();
                             if (!wasHuman)
@@ -465,6 +505,7 @@ namespace XiaoXiWei.Standalone
                             _humanMode = false;
                             _sessionId = string.Empty;
                             _transferButton.Text = "转人工";
+                            _assistButton.Visible = false;
                             _status.Text = "AI 在线 · 回复由通义千问生成";
                             _pollTimer.Stop();
                             AppendSystem("人工会话已经结束。");
@@ -540,7 +581,132 @@ namespace XiaoXiWei.Standalone
             _input.Enabled = enabled;
             _sendButton.Enabled = enabled;
             _transferButton.Enabled = enabled;
+            _assistButton.Enabled = enabled;
         }
+
+        private void RequestRemoteAssistance()
+        {
+            if (_requestInFlight
+                || !_humanMode
+                || string.IsNullOrWhiteSpace(_sessionId))
+            {
+                return;
+            }
+
+            DialogResult consent = MessageBox.Show(
+                this,
+                "将打开 Windows“快速助手”。只有你输入一次性安全码，"
+                    + "并在系统窗口中再次选择“允许”后，对方才能查看或控制电脑。"
+                    + "\r\n\r\n你可以随时关闭快速助手来结束远程协助。是否继续？",
+                "请求远程协助",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information,
+                MessageBoxDefaultButton.Button2);
+            if (consent != DialogResult.Yes)
+            {
+                return;
+            }
+
+            BeginRequest(
+                "正在发送远程协助请求…",
+                delegate
+                {
+                    return _client.RequestRemoteAssistance(_sessionId);
+                },
+                delegate(ChatServiceResponse response)
+                {
+                    AppendSystem(
+                        "远程协助请求已发送。请在快速助手中输入对方提供的"
+                            + "一次性安全码，并再次确认是否允许控制。");
+                    _status.Text = "人工会话中 · 等待快速助手安全码";
+                    OpenQuickAssist();
+                });
+        }
+
+        private void OpenQuickAssist()
+        {
+            try
+            {
+                ProcessStartInfo startInfo =
+                    new ProcessStartInfo("quickassist:");
+                startInfo.UseShellExecute = true;
+                Process.Start(startInfo);
+            }
+            catch
+            {
+                try
+                {
+                    Process.Start("quickassist.exe");
+                }
+                catch
+                {
+                    AppendSystem(
+                        "没有找到 Windows 快速助手。请从 Microsoft Store "
+                            + "安装“快速助手”后重试。");
+                }
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            TryEnableAcrylic();
+        }
+
+        private void TryEnableAcrylic()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            AccentPolicy accent = new AccentPolicy();
+            accent.AccentState = 4;
+            accent.AccentFlags = 2;
+            accent.GradientColor = unchecked((int)0xB0201208);
+            int size = Marshal.SizeOf(typeof(AccentPolicy));
+            IntPtr pointer = Marshal.AllocHGlobal(size);
+            try
+            {
+                Marshal.StructureToPtr(accent, pointer, false);
+                WindowCompositionAttributeData data =
+                    new WindowCompositionAttributeData();
+                data.Attribute = 19;
+                data.Data = pointer;
+                data.SizeOfData = size;
+                SetWindowCompositionAttribute(Handle, ref data);
+            }
+            catch
+            {
+                // Opacity and custom painting remain as a compatible fallback.
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pointer);
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct AccentPolicy
+        {
+            public int AccentState;
+            public int AccentFlags;
+            public int GradientColor;
+            public int AnimationId;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WindowCompositionAttributeData
+        {
+            public int Attribute;
+            public IntPtr Data;
+            public int SizeOfData;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowCompositionAttribute(
+            IntPtr windowHandle,
+            ref WindowCompositionAttributeData data);
 
         private void AppendUser(string text)
         {

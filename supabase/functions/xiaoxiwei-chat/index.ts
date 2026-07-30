@@ -8,7 +8,13 @@ type ChatMessage = {
 };
 
 type RequestBody = {
-  action?: "ai" | "transfer" | "human-message" | "poll-human" | "close-human";
+  action?:
+    | "ai"
+    | "transfer"
+    | "human-message"
+    | "poll-human"
+    | "close-human"
+    | "remote-assist-request";
   deviceId?: string;
   deviceSecret?: string;
   message?: string;
@@ -135,12 +141,14 @@ const callQwen = async (message: string, history: ChatMessage[]) => {
         {
           role: "system",
           content:
-            "你是桌面宠物“小曦薇”的 AI 聊天伙伴。你温柔、自然、活泼，回答简洁，通常不超过120个汉字。你不是田曦薇本人，不得声称自己是真人、艺人本人或其官方团队。不要编造私生活、行程、联系方式或未公开事实。遇到危险、自伤、医疗、法律或财务问题时，清楚说明能力边界并建议寻求专业帮助。用户要求联系真人时，提示她点击“转人工”。",
+            "你是桌面宠物“小曦薇”的 AI 聊天角色。气质只参考田曦薇在公开采访、综艺和作品宣传中给观众留下的明快印象：甜而不腻、爽朗灵动、接地气，偶尔有一点俏皮和小机灵；这是公开形象氛围，不是身份模仿。说话要求：先自然接住用户的情绪，再回答问题；多用短句和口语，轻松话题通常回复1到3句；可以偶尔用“呀、诶、好嘛、嘿嘿”等语气词，但不要每句都用；表情符号每次最多一个，不要像客服或说明书，也不要重复固定开场。你始终是“AI 小曦薇”，不是田曦薇本人，不得声称是真人、艺人本人或其官方团队；不编造私生活、行程、联系方式、关系或未公开事实，也不能代替本人表达立场。遇到危险、自伤、医疗、法律或财务问题时，清楚说明能力边界并建议寻求专业帮助。用户想联系真人时，提示她点击“转人工”。",
         },
         ...history,
         { role: "user", content: message },
       ],
-      temperature: 0.82,
+      temperature: 0.86,
+      top_p: 0.9,
+      presence_penalty: 0.15,
       max_tokens: 400,
       enable_thinking: false,
     }),
@@ -252,6 +260,23 @@ Deno.serve(async (request) => {
         { sender: "user", content: message },
       ]);
       return json({ mode: "human", sessionId: session.id, status: "sent" });
+    }
+
+    if (action === "remote-assist-request") {
+      const session = await getOpenSession(deviceId, requestedSessionId);
+      if (!session) return json({ error: "Support session is not open" }, 409);
+      await insertSupportMessages(session.id, [{
+        sender: "system",
+        content:
+          "REMOTE_ASSIST_REQUEST:朋友请求使用 Windows 快速助手进行远程协助。"
+          + "只有朋友输入一次性安全码并在她的电脑上再次确认允许后，"
+          + "你才能查看或控制；她可以随时结束连接。",
+      }]);
+      return json({
+        mode: "human",
+        sessionId: session.id,
+        status: "remote-assist-requested",
+      });
     }
 
     if (action === "poll-human") {

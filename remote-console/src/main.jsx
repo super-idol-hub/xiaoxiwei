@@ -226,6 +226,15 @@ function formatSupportTime(value) {
   }).format(date);
 }
 
+const remoteAssistPrefix = "REMOTE_ASSIST_REQUEST:";
+
+function supportMessageText(value) {
+  if (!value) return "";
+  return value.startsWith(remoteAssistPrefix)
+    ? value.slice(remoteAssistPrefix.length)
+    : value;
+}
+
 function SupportDialog({
   sessions,
   activeSessionId,
@@ -241,6 +250,9 @@ function SupportDialog({
   onClose,
 }) {
   const active = sessions.find((item) => item.session_id === activeSessionId);
+  const remoteAssistRequested = messages.some(
+    (item) => item.sender === "system" && item.content?.startsWith(remoteAssistPrefix),
+  );
   const senderName = {
     user: "朋友",
     assistant: "AI 小曦薇",
@@ -285,7 +297,7 @@ function SupportDialog({
                 <span className={`support-status-dot ${session.status}`} />
                 <span className="support-session-copy">
                   <strong>{session.status === "open" ? "等待回复" : "已结束会话"}</strong>
-                  <small>{session.last_message || "尚无消息"}</small>
+                  <small>{supportMessageText(session.last_message) || "尚无消息"}</small>
                 </span>
                 <time>{formatSupportTime(session.updated_at)}</time>
               </button>
@@ -305,11 +317,19 @@ function SupportDialog({
                     <strong>{active.status === "open" ? "人工通道已连接" : "会话已结束"}</strong>
                     <span>{active.message_count || 0} 条消息</span>
                   </div>
-                  {active.status === "open" && (
-                    <button className="text-button danger-text" onClick={() => onCloseSession(active.session_id)}>
-                      结束会话
-                    </button>
-                  )}
+                  <div className="support-conversation-actions">
+                    {active.status === "open" && remoteAssistRequested && (
+                      <a className="support-assist-launch" href="quickassist:">
+                        <Icon name="headset" size={16} />
+                        打开 Windows 快速助手
+                      </a>
+                    )}
+                    {active.status === "open" && (
+                      <button className="text-button danger-text" onClick={() => onCloseSession(active.session_id)}>
+                        结束会话
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="support-message-list">
                   {loading ? (
@@ -322,7 +342,7 @@ function SupportDialog({
                         <strong>{senderName[message.sender] || message.sender}</strong>
                         <time>{formatSupportTime(message.created_at)}</time>
                       </div>
-                      <p>{message.content}</p>
+                      <p>{supportMessageText(message.content)}</p>
                     </article>
                   ))}
                 </div>

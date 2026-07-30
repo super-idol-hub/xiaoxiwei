@@ -103,6 +103,15 @@ namespace XiaoXiWei.Standalone
                 sessionId);
         }
 
+        public ChatServiceResponse RequestRemoteAssistance(string sessionId)
+        {
+            return Send(
+                "remote-assist-request",
+                string.Empty,
+                new List<ChatConversationMessage>(),
+                sessionId);
+        }
+
         private ChatServiceResponse Send(
             string action,
             string message,
