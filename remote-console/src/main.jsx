@@ -321,12 +321,12 @@ function SupportDialog({
                     {active.status === "open" && remoteAssistRequested && (
                       <a
                         className="support-assist-launch"
-                        href="https://rustdesk.com/"
+                        href="https://rustdesk.com/web/"
                         target="_blank"
                         rel="noreferrer"
                       >
                         <Icon name="headset" size={16} />
-                        获取 RustDesk 控制端
+                        打开网页版控制端
                       </a>
                     )}
                     {active.status === "open" && (
