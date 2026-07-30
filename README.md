@@ -31,7 +31,6 @@
 - 可选的田曦薇微博新动态提醒；首次检查只建立基线，不弹出历史内容。
 - 右键“聊天”会在人物旁打开蓝色光幕，可与 Qwen 驱动的“AI 小曦薇”聊天；界面会明确标注 AI 身份，不会冒充田曦薇本人。
 - 普通 AI 对话只在当前桌面聊天中使用，不会出现在遥控台；用户主动点击“转人工”后，当前对话才会进入账户登录保护的网页遥控台，由管理员回复。
-- 转人工后可由朋友主动点击“请求远程协助”，启动 EXE 内置的开源 RustDesk 1.4.9 Windows x64 便携组件，无需另外安装。朋友需要主动把 RustDesk 设备 ID 和一次性密码发在当前人工会话中；程序不设置固定密码、不安装后台服务，并提供明显的“停止远程协助”按钮。
 - Qwen API Key 仅保存在 Supabase Edge Function Secrets 中，不写入 EXE、前端配置或 GitHub 仓库。EXE 只携带公开项目配置和本设备的访问凭据。
 - 右键菜单可打开聊天、预览动作、开关微博提醒、立即检查微博和退出程序；不再显示“远程消息状态”和“重新加载配置”两条调试菜单。
 
@@ -58,13 +57,6 @@
 ## 技术基础
 
 项目遵循 [偶像 Windows 互动角色开发规范](https://github.com/super-idol-hub/idol-windows-character-guides)，统一采用其中的产品命名、动作与皮肤契约、交互行为、质量验证、版权边界和发布要求。
-
-远程协助使用未经修改的
-[RustDesk 1.4.9](https://github.com/rustdesk/rustdesk/tree/1.4.9)
-官方 Windows x64 便携客户端作为独立辅助进程。RustDesk 采用
-[GNU AGPL-3.0](https://github.com/rustdesk/rustdesk/blob/1.4.9/LICENCE)
-许可证；构建脚本会固定版本、验证 SHA-256 和 Authenticode 数字签名，并将许可证与第三方声明随组件释放到本地应用数据目录。源码仓库不提交第三方 EXE，可先运行
-`source/standalone/xiaoxiwei/fetch-rustdesk.ps1` 获取并校验官方发布文件。
 
 ## 免责声明
 

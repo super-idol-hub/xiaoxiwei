@@ -876,27 +876,6 @@ footer {
   gap: 12px !important;
 }
 
-.support-assist-launch {
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 12px;
-  color: #136b8c;
-  background: #eaf8fd;
-  border: 1px solid #a9dced;
-  border-radius: 9px;
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.support-assist-launch:hover {
-  color: #0e5772;
-  background: #dcf3fb;
-  border-color: #76c8e3;
-}
-
 .support-conversation-meta strong {
   color: #28303d;
   font-size: 14px;

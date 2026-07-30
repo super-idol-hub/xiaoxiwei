@@ -250,9 +250,6 @@ function SupportDialog({
   onClose,
 }) {
   const active = sessions.find((item) => item.session_id === activeSessionId);
-  const remoteAssistRequested = messages.some(
-    (item) => item.sender === "system" && item.content?.startsWith(remoteAssistPrefix),
-  );
   const senderName = {
     user: "朋友",
     assistant: "AI 小曦薇",
@@ -318,17 +315,6 @@ function SupportDialog({
                     <span>{active.message_count || 0} 条消息</span>
                   </div>
                   <div className="support-conversation-actions">
-                    {active.status === "open" && remoteAssistRequested && (
-                      <a
-                        className="support-assist-launch"
-                        href="https://rustdesk.com/web/"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Icon name="headset" size={16} />
-                        打开网页版控制端
-                      </a>
-                    )}
                     {active.status === "open" && (
                       <button className="text-button danger-text" onClick={() => onCloseSession(active.session_id)}>
                         结束会话
